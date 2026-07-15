@@ -78,14 +78,21 @@ jobs:
             set -e
             mv /home/ubuntu/app.jar.new /home/ubuntu/app.jar
 
-            pkill -f '\-jar /home/ubuntu/app.jar' || true
-            sleep 2
+            if [ -f /home/ubuntu/app.pid ]; then
+              OLD_PID=$(cat /home/ubuntu/app.pid)
+              if kill -0 "$OLD_PID" 2>/dev/null; then
+                kill "$OLD_PID"
+                sleep 2
+              fi
+              rm -f /home/ubuntu/app.pid
+            fi
 
             cd /home/ubuntu
             set -a
             source /home/ubuntu/.env
             set +a
             setsid nohup java -jar app.jar > /home/ubuntu/app.log 2>&1 < /dev/null &
+            echo $! > /home/ubuntu/app.pid
             disown
             sleep 5
 
