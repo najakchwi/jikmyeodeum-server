@@ -5,10 +5,11 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
@@ -25,12 +26,13 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  * <p>예외 로그 예시:
  * [API ERROR] GET /api/v1/users/abc | UserController.getUser() | params={} | time=5ms | message=...
  */
-@Slf4j
 @Aspect
 @Order(1)
 @Component
 @Profile("!test")
 public class ApiLoggingAspect {
+
+    private static final Logger log = LoggerFactory.getLogger("API");
 
     @Around("com.sportsmate.server.infrastructure.aop.Pointcuts.allController()")
     public Object logApiCall(ProceedingJoinPoint joinPoint) throws Throwable {

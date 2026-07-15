@@ -40,3 +40,6 @@ out/
 /TASK_SPEC_*.md
 /codex_work_logs/
 /logs/
+
+### 서버 전용 배포 설정 (Ubuntu에만 존재, repo에 안 올림) ###
+/docker-compose.yml
