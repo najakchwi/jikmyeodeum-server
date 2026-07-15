@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/jikmyeodeum-server
-EnvironmentFile=/opt/jikmyeodeum-server/.env
-ExecStart=/usr/bin/java -jar /opt/jikmyeodeum-server/app.jar --spring.profiles.active=prod
+WorkingDirectory=/home/ubuntu
+EnvironmentFile=/home/ubuntu/.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/app.jar --spring.profiles.active=prod
 Restart=on-failure
 RestartSec=5
 

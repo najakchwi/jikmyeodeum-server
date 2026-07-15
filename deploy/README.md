@@ -2,20 +2,15 @@
 
 이 문서는 Lightsail Ubuntu 인스턴스에서 사람이 1회 수동으로 준비해야 하는 절차다. 이후 배포는 `main` push 때 실행되는 `.github/workflows/ci.yml`과 `.github/workflows/cd.yml`이 담당한다. CI가 테스트와 빌드를 완료하고 jar artifact를 남기면, CD가 해당 artifact를 내려받아 태깅, jar 업로드, 서비스 재시작, 헬스체크를 수행한다.
 
-## 1. 디렉터리 준비
+## 1. 배포 위치
 
-배포 대상 서버에서 애플리케이션 디렉터리를 만든다.
+별도 디렉터리를 만들지 않고 배포 유저의 홈 디렉터리(`/home/ubuntu`)에 바로 `app.jar`, `.env`를 둔다. `/home/ubuntu`는 이미 해당 유저 소유이므로 추가 `mkdir`/`chown`이 필요 없다.
 
-```bash
-sudo mkdir -p /opt/jikmyeodeum-server
-sudo chown -R ubuntu:ubuntu /opt/jikmyeodeum-server
-```
-
-`deploy/jikmyeodeum-server.service`의 `User=ubuntu`는 Lightsail 기본 유저를 가정한 값이다. 별도 배포 유저를 사용할 경우 systemd 유닛의 `User=`와 `/opt/jikmyeodeum-server` 소유자를 같은 유저로 맞춘다.
+`deploy/jikmyeodeum-server.service`의 `User=ubuntu`는 Lightsail 기본 유저를 가정한 값이다. 별도 배포 유저를 사용할 경우 systemd 유닛의 `User=`와 `WorkingDirectory`/`EnvironmentFile`/`ExecStart` 경로를 그 유저의 홈 디렉터리로 맞춘다.
 
 ## 2. 서버 `.env` 파일
 
-`/opt/jikmyeodeum-server/.env` 파일을 만들고 아래 변수명을 채운다. 값은 서버 운영자가 직접 입력한다.
+`/home/ubuntu/.env` 파일을 만들고 아래 변수명을 채운다. 값은 서버 운영자가 직접 입력한다.
 
 필수:
 
@@ -55,7 +50,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable jikmyeodeum-server
 ```
 
-초기 배포 전까지 `/opt/jikmyeodeum-server/app.jar`가 없으면 서비스 시작은 실패할 수 있다. 첫 GitHub Actions 배포 이후 `sudo systemctl status jikmyeodeum-server`로 상태를 확인한다.
+초기 배포 전까지 `/home/ubuntu/app.jar`가 없으면 서비스 시작은 실패할 수 있다. 첫 GitHub Actions 배포 이후 `sudo systemctl status jikmyeodeum-server`로 상태를 확인한다.
 
 ## 4. 배포용 SSH 키
 
