@@ -19,10 +19,21 @@ public class MatchingScheduler {
 
     @Scheduled(cron = "0 0 9 * * *", zone = "Asia/Seoul")
     public void matchWaitingApplications() {
-        var result = applicationUseCase.matchWaitingApplications();
-        log.info(
-                "Waiting applications matched. gamesProcessed={}, pairsMatched={}",
-                result.gamesProcessed(),
-                result.pairsMatched());
+        try {
+            var result = applicationUseCase.matchWaitingApplications();
+            log.info(
+                    "Waiting applications matched. gamesProcessed={}, gamesFailed={}, pairsMatched={}",
+                    result.gamesProcessed(),
+                    result.gamesFailed(),
+                    result.pairsMatched());
+            if (result.gamesFailed() > 0) {
+                // TODO: connect an operations alert channel for partial matching batch failures.
+                log.warn("Waiting applications matching completed with failed games. gamesFailed={}",
+                        result.gamesFailed());
+            }
+        } catch (RuntimeException exception) {
+            // TODO: connect an operations alert channel for fatal matching batch failures.
+            log.error("Waiting applications matching failed fatally.", exception);
+        }
     }
 }

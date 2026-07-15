@@ -37,6 +37,7 @@ import com.sportsmate.server.domain.member.enums.SmokingPref;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
+import com.sportsmate.server.domain.member.exception.MemberErrorCode;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.in.MemberUseCase;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
@@ -49,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -77,9 +79,11 @@ class ApplicationServiceTest {
             "watchStyle", 20.0,
             "personality", 10.0,
             "distance", 10.0), 60);
+    private final ApplicationMatchingBatchProcessor matchingBatchProcessor = new ApplicationMatchingBatchProcessor(
+            applicationOutPort, memberUseCase, notificationUseCase, matchingEngine, matchCandidateFactory, matchWeights);
     private final ApplicationService applicationService = new ApplicationService(
             applicationOutPort, gameOutPort, gameService, memberUseCase, memberOutPort,
-            notificationUseCase, chatUseCase, reviewOutPort, matchingEngine, matchCandidateFactory, matchWeights);
+            notificationUseCase, chatUseCase, reviewOutPort, matchingBatchProcessor);
 
     @Test
     @DisplayName("매칭된 신청을 취소하면 상대 신청은 대기 상태로 돌아가고 취소자는 신뢰도가 즉시 차감된다")
@@ -299,6 +303,7 @@ class ApplicationServiceTest {
         var result = applicationService.matchWaitingApplications();
 
         assertThat(result.gamesProcessed()).isEqualTo(2);
+        assertThat(result.gamesFailed()).isZero();
         assertThat(result.pairsMatched()).isEqualTo(1);
         Application first = applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow();
         Application second = applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow();
@@ -324,11 +329,80 @@ class ApplicationServiceTest {
 
         var result = applicationService.matchWaitingApplications();
 
+        assertThat(result.gamesFailed()).isZero();
         assertThat(result.pairsMatched()).isZero();
         assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
                 .isEqualTo("waiting");
         assertThat(applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow().getStatus())
                 .isEqualTo("waiting");
+    }
+
+    @Test
+    @DisplayName("한 경기 매칭이 실패해도 다른 경기 매칭은 계속 처리한다")
+    void matchWaitingApplications_whenOneGameFails_continuesWithOtherGames() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "10"));
+        applicationOutPort.save(Application.create("3", 3L, "20"));
+        applicationOutPort.save(Application.create("4", 4L, "20"));
+        applicationOutPort.failOnFindWaitingGameIds.add("10");
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(2);
+        assertThat(result.gamesFailed()).isEqualTo(1);
+        assertThat(result.pairsMatched()).isEqualTo(1);
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
+                .isEqualTo("waiting");
+        assertThat(applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow().getStatus())
+                .isEqualTo("waiting");
+        assertThat(applicationOutPort.findByIdAndMemberId("3", 3L).orElseThrow().getStatus())
+                .isEqualTo("matched");
+        assertThat(applicationOutPort.findByIdAndMemberId("4", 4L).orElseThrow().getStatus())
+                .isEqualTo("matched");
+    }
+
+    @Test
+    @DisplayName("회원 조회에 실패한 대기 신청자는 제외하고 같은 경기의 나머지 신청자끼리 매칭한다")
+    void matchWaitingApplications_withMissingMember_excludesApplicationAndMatchesRemainingCandidates() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "10"));
+        applicationOutPort.save(Application.create("3", 3L, "10"));
+        memberUseCase.missingMemberIds.add(2L);
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(1);
+        assertThat(result.gamesFailed()).isZero();
+        assertThat(result.pairsMatched()).isEqualTo(1);
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
+                .isEqualTo("matched");
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getMatchedMemberId())
+                .isEqualTo(3L);
+        assertThat(applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow().getStatus())
+                .isEqualTo("waiting");
+        assertThat(applicationOutPort.findByIdAndMemberId("3", 3L).orElseThrow().getMatchedMemberId())
+                .isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("한 경기의 유일한 대기자가 회원 조회 실패해도 전체 배치와 다른 경기는 죽지 않는다")
+    void matchWaitingApplications_withOnlyMissingMemberInGame_doesNotFailBatch() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "20"));
+        applicationOutPort.save(Application.create("3", 3L, "20"));
+        memberUseCase.missingMemberIds.add(1L);
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(2);
+        assertThat(result.gamesFailed()).isZero();
+        assertThat(result.pairsMatched()).isEqualTo(1);
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
+                .isEqualTo("waiting");
+        assertThat(applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow().getStatus())
+                .isEqualTo("matched");
+        assertThat(applicationOutPort.findByIdAndMemberId("3", 3L).orElseThrow().getStatus())
+                .isEqualTo("matched");
     }
 
     @Test
@@ -396,6 +470,7 @@ class ApplicationServiceTest {
 
     private static class FakeApplicationOutPort implements ApplicationOutPort {
         private final Map<String, Application> applications = new LinkedHashMap<>();
+        private final Set<String> failOnFindWaitingGameIds = new java.util.HashSet<>();
         private long chattingCancellationCount = 0;
         private long nextId = 100;
 
@@ -463,6 +538,9 @@ class ApplicationServiceTest {
 
         @Override
         public List<Application> findWaitingByGameId(String gameId) {
+            if (failOnFindWaitingGameIds.contains(gameId)) {
+                throw new IllegalStateException("broken game data");
+            }
             return applications.values().stream()
                     .filter(application -> gameId.equals(application.getGameId()))
                     .filter(application -> "waiting".equals(application.getStatus()))
@@ -586,9 +664,13 @@ class ApplicationServiceTest {
 
     private static class FakeMemberUseCase implements MemberUseCase {
         private final Map<Long, Integer> trustScores = new LinkedHashMap<>();
+        private final Set<Long> missingMemberIds = new java.util.HashSet<>();
 
         @Override
         public MemberProfile get(Long memberId) {
+            if (missingMemberIds.contains(memberId)) {
+                throw new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND);
+            }
             return new MemberProfile(
                     memberId, "0100000000" + memberId, "phone", "member" + memberId,
                     null, LocalDate.of(1997, 1, 1), "male", null, null, "LG", 0, 0.0,
