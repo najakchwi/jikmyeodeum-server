@@ -1,0 +1,33 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/letsports}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+  # DB driver memo
+  # PostgreSQL: org.postgresql.Driver / jdbc:postgresql://host:5432/db
+  # H2: org.h2.Driver / jdbc:h2:mem:...
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+    open-in-view: false
+
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed/common,classpath:db/seed/dev
+    clean-disabled: false
+
+logging:
+  level:
+    com.sportsmate.server: debug
+    org.hibernate.SQL: debug
+    org.hibernate.orm.jdbc.bind: trace

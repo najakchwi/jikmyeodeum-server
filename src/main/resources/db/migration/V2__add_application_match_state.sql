@@ -1,0 +1,5 @@
+ALTER TABLE match_applications
+    ADD COLUMN IF NOT EXISTS matched_member_id BIGINT,
+    ADD COLUMN IF NOT EXISTS matched_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS response VARCHAR(20);

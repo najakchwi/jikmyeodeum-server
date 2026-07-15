@@ -1,0 +1,17 @@
+SELECT setval(pg_get_serial_sequence('auth',                  'id'), MAX(id)) FROM auth;
+SELECT setval(pg_get_serial_sequence('terms',                 'id'), MAX(id)) FROM terms;
+SELECT setval(pg_get_serial_sequence('members',               'id'), MAX(id)) FROM members;
+SELECT setval(pg_get_serial_sequence('auth_terms_agreements', 'id'), MAX(id)) FROM auth_terms_agreements;
+SELECT setval(pg_get_serial_sequence('leagues',               'id'), MAX(id)) FROM leagues;
+SELECT setval(pg_get_serial_sequence('stadiums',              'id'), MAX(id)) FROM stadiums;
+SELECT setval(pg_get_serial_sequence('teams',                 'id'), MAX(id)) FROM teams;
+SELECT setval(pg_get_serial_sequence('games',                 'id'), MAX(id)) FROM games;
+SELECT setval(pg_get_serial_sequence('matches',               'id'), MAX(id)) FROM matches;
+SELECT setval(pg_get_serial_sequence('match_applications',    'id'), MAX(id)) FROM match_applications;
+SELECT setval(pg_get_serial_sequence('chat_messages',         'id'), MAX(id)) FROM chat_messages;
+SELECT setval(pg_get_serial_sequence('reviews',               'id'), MAX(id)) FROM reviews;
+SELECT setval(pg_get_serial_sequence('banners',               'id'), MAX(id)) FROM banners;
+SELECT setval(pg_get_serial_sequence('faqs',                  'id'), MAX(id)) FROM faqs;
+SELECT setval(pg_get_serial_sequence('avatar_presets',        'id'), MAX(id)) FROM avatar_presets;
+SELECT setval(pg_get_serial_sequence('content_assets',        'id'), MAX(id)) FROM content_assets;
+SELECT setval(pg_get_serial_sequence('notifications',         'id'), MAX(id)) FROM notifications;

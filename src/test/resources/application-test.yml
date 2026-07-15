@@ -1,0 +1,44 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:letsports-test;MODE=PostgreSQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+
+  flyway:
+    enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: off
+
+app:
+  server:
+    url: http://localhost
+  auth:
+    verification-code-override: "000000"
+  jwt:
+    secret: test-secret-key-for-jwt-signing-must-be-at-least-32-bytes!!
+    access-token-expiration: 3600
+    refresh-token-expiration: 2592000
+  kakao:
+    rest-api-key: test-kakao-rest-api-key
+    app-key: test-kakao-app-key
+    jwks-uri: https://kauth.kakao.com/.well-known/jwks.json
+    issuer: https://kauth.kakao.com
+  google:
+    client-id: test-google-client-id
+    jwks-uri: https://www.googleapis.com/oauth2/v3/certs
+    issuer: https://accounts.google.com
