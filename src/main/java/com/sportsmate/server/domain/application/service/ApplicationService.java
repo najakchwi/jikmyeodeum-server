@@ -3,10 +3,6 @@ package com.sportsmate.server.domain.application.service;
 import com.sportsmate.server.common.exception.BusinessException;
 import com.sportsmate.server.domain.application.Application;
 import com.sportsmate.server.domain.application.exception.ApplicationErrorCode;
-import com.sportsmate.server.domain.application.matching.MatchCandidateFactory;
-import com.sportsmate.server.domain.application.matching.MatchPair;
-import com.sportsmate.server.domain.application.matching.MatchWeights;
-import com.sportsmate.server.domain.application.matching.MatchingEngine;
 import com.sportsmate.server.domain.application.policy.CancellationPenaltyPolicy;
 import com.sportsmate.server.domain.application.port.in.ApplicationUseCase;
 import com.sportsmate.server.domain.application.port.out.ApplicationOutPort;
@@ -24,16 +20,16 @@ import com.sportsmate.server.domain.review.port.out.ReviewOutPort;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
 public class ApplicationService implements ApplicationUseCase {
+    private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
     private static final Set<String> ACTIVE_STATUSES = Set.of("waiting", "matched", "chatting");
     private static final int MIN_TRUST_SCORE_TO_APPLY = 50;
 
@@ -45,16 +41,14 @@ public class ApplicationService implements ApplicationUseCase {
     private final NotificationUseCase notificationUseCase;
     private final ChatUseCase chatUseCase;
     private final ReviewOutPort reviewOutPort;
-    private final MatchingEngine matchingEngine;
-    private final MatchCandidateFactory matchCandidateFactory;
-    private final MatchWeights matchWeights;
+    private final ApplicationMatchingBatchProcessor matchingBatchProcessor;
     private final CancellationPenaltyPolicy cancellationPenaltyPolicy = new CancellationPenaltyPolicy();
 
     public ApplicationService(ApplicationOutPort applicationOutPort, GameOutPort gameOutPort,
             GameService gameService, MemberUseCase memberUseCase,
             MemberOutPort memberOutPort, NotificationUseCase notificationUseCase,
-            ChatUseCase chatUseCase, ReviewOutPort reviewOutPort, MatchingEngine matchingEngine,
-            MatchCandidateFactory matchCandidateFactory, MatchWeights matchWeights) {
+            ChatUseCase chatUseCase, ReviewOutPort reviewOutPort,
+            ApplicationMatchingBatchProcessor matchingBatchProcessor) {
         this.applicationOutPort = applicationOutPort;
         this.gameOutPort = gameOutPort;
         this.gameService = gameService;
@@ -63,9 +57,7 @@ public class ApplicationService implements ApplicationUseCase {
         this.notificationUseCase = notificationUseCase;
         this.chatUseCase = chatUseCase;
         this.reviewOutPort = reviewOutPort;
-        this.matchingEngine = matchingEngine;
-        this.matchCandidateFactory = matchCandidateFactory;
-        this.matchWeights = matchWeights;
+        this.matchingBatchProcessor = matchingBatchProcessor;
     }
 
     @Override
@@ -229,36 +221,19 @@ public class ApplicationService implements ApplicationUseCase {
     }
 
     @Override
-    @Transactional
     public MatchBatchResult matchWaitingApplications() {
         List<String> gameIds = applicationOutPort.findGameIdsWithWaitingApplications();
         int pairsMatched = 0;
+        int gamesFailed = 0;
         for (String gameId : gameIds) {
-            pairsMatched += matchWaitingPairs(gameId);
+            try {
+                pairsMatched += matchingBatchProcessor.matchWaitingPairs(gameId);
+            } catch (RuntimeException exception) {
+                gamesFailed++;
+                log.error("Matching failed for game. gameId={}, reason={}", gameId, exception.getMessage(), exception);
+            }
         }
-        return new MatchBatchResult(gameIds.size(), pairsMatched);
-    }
-
-    private int matchWaitingPairs(String gameId) {
-        List<Application> waiting = applicationOutPort.findWaitingByGameId(gameId);
-        Map<String, Application> applicationsById = waiting.stream()
-                .collect(Collectors.toMap(Application::getId, Function.identity()));
-        List<MatchPair> pairs = matchingEngine.match(waiting.stream()
-                .map(application -> matchCandidateFactory.from(application, memberUseCase.get(application.getMemberId())))
-                .toList(), matchWeights);
-        for (MatchPair pair : pairs) {
-            Application first = applicationsById.get(pair.applicationAId());
-            Application second = applicationsById.get(pair.applicationBId());
-            first.assign(pair.memberBId(), pair.score());
-            second.assign(pair.memberAId(), pair.score());
-            applicationOutPort.save(first);
-            applicationOutPort.save(second);
-            notificationUseCase.createAndPush(first.getMemberId(), "match", "매칭 후보가 도착했어요!",
-                    "23시간 안에 매칭 결과를 확인해주세요.", "matchResult", first.getId(), null);
-            notificationUseCase.createAndPush(second.getMemberId(), "match", "매칭 후보가 도착했어요!",
-                    "23시간 안에 매칭 결과를 확인해주세요.", "matchResult", second.getId(), null);
-        }
-        return pairs.size();
+        return new MatchBatchResult(gameIds.size(), gamesFailed, pairsMatched);
     }
 
     private ApplicationResult toResult(Long memberId, Application application, boolean includeMyReview) {

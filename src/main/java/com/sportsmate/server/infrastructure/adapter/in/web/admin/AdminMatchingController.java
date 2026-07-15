@@ -45,7 +45,10 @@ public class AdminMatchingController {
         auditLogPort.record(AuditEvent.of(
                 AuditCategory.ADMIN_ACTION, "MANUAL_MATCHING_RUN", "ADMIN", memberId,
                 "MATCHING_BATCH", null, AuditResult.SUCCESS,
-                Map.of("gamesProcessed", result.gamesProcessed(), "pairsMatched", result.pairsMatched())));
+                Map.of(
+                        "gamesProcessed", result.gamesProcessed(),
+                        "gamesFailed", result.gamesFailed(),
+                        "pairsMatched", result.pairsMatched())));
         return ApiResponse.success(result);
     }
 }
