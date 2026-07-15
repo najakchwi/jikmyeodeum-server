@@ -7,6 +7,7 @@ import com.sportsmate.server.common.port.out.audit.AuditEvent;
 import com.sportsmate.server.common.port.out.audit.AuditLogPort;
 import com.sportsmate.server.common.port.out.audit.AuditResult;
 import com.sportsmate.server.common.port.out.location.KakaoLocalApiPort;
+import com.sportsmate.server.common.port.out.monitoring.SafetySignalPort;
 import com.sportsmate.server.common.port.out.location.LocationRegion;
 import com.sportsmate.server.common.port.out.oauth.GoogleAuthPort;
 import com.sportsmate.server.common.port.out.oauth.KakaoAuthPort;
@@ -69,6 +70,7 @@ public class AuthService implements AuthUseCase {
     private final PolicyUseCase policyUseCase;
     private final ObjectStorage objectStorage;
     private final AuditLogPort auditLogPort;
+    private final SafetySignalPort safetySignalPort;
     private final String verificationCodeOverride;
     private final long refreshTokenExpiration;
 
@@ -82,6 +84,7 @@ public class AuthService implements AuthUseCase {
             PolicyUseCase policyUseCase,
             ObjectStorage objectStorage,
             AuditLogPort auditLogPort,
+            SafetySignalPort safetySignalPort,
             @Value("${app.auth.verification-code-override:}") String verificationCodeOverride,
             @Value("${app.jwt.refresh-token-expiration}") long refreshTokenExpiration) {
         this.memberOutPort = memberOutPort;
@@ -99,6 +102,7 @@ public class AuthService implements AuthUseCase {
         this.policyUseCase = policyUseCase;
         this.objectStorage = objectStorage;
         this.auditLogPort = auditLogPort;
+        this.safetySignalPort = safetySignalPort;
         this.verificationCodeOverride = verificationCodeOverride;
         this.refreshTokenExpiration = refreshTokenExpiration;
     }
@@ -323,8 +327,17 @@ public class AuthService implements AuthUseCase {
                 LocalDateTime.now()));
         applicationUseCase.cancelAllActiveByMember(memberId);
         memberOutPort.withdraw(memberId);
+        recordWithdrawalSignal();
         tokenStore.deleteByMemberId(memberId.toString());
         deleteAvatarIfPresent(member.getAvatarUrl());
+    }
+
+    private void recordWithdrawalSignal() {
+        try {
+            safetySignalPort.recordWithdrawal();
+        } catch (RuntimeException exception) {
+            log.warn("Failed to record withdrawal monitoring signal.", exception);
+        }
     }
 
     @Override

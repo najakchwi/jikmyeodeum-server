@@ -10,8 +10,13 @@ import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 /**
@@ -88,6 +93,22 @@ public class JwtProvider implements TokenIssuer {
         } catch (JwtException | IllegalArgumentException e) {
             return List.of();
         }
+    }
+
+    public Optional<Authentication> toAuthentication(String token) {
+        if (!validate(token)) {
+            return Optional.empty();
+        }
+
+        String memberId = extractMemberId(token);
+        if (memberId == null || memberId.isBlank()) {
+            return Optional.empty();
+        }
+
+        List<GrantedAuthority> authorities = extractRoles(token).stream()
+                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+                .toList();
+        return Optional.of(new UsernamePasswordAuthenticationToken(memberId, null, authorities));
     }
 
     private String buildToken(String subject, List<Role> roles, String tokenType, long expirationSeconds) {

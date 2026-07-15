@@ -15,6 +15,7 @@ import com.sportsmate.server.common.port.out.audit.AuditCategory;
 import com.sportsmate.server.common.port.out.audit.AuditLogPort;
 import com.sportsmate.server.common.port.out.audit.AuditResult;
 import com.sportsmate.server.common.port.out.location.KakaoLocalApiPort;
+import com.sportsmate.server.common.port.out.monitoring.SafetySignalPort;
 import com.sportsmate.server.common.port.out.oauth.GoogleAuthPort;
 import com.sportsmate.server.common.port.out.oauth.KakaoAuthPort;
 import com.sportsmate.server.common.port.out.oauth.SocialUserInfo;
@@ -68,11 +69,12 @@ class AuthServiceTest {
     private final PolicyUseCase policyUseCase = Mockito.mock(PolicyUseCase.class);
     private final ObjectStorage objectStorage = Mockito.mock(ObjectStorage.class);
     private final AuditLogPort auditLogPort = Mockito.mock(AuditLogPort.class);
+    private final SafetySignalPort safetySignalPort = Mockito.mock(SafetySignalPort.class);
 
     private final AuthService authService = new AuthService(
             memberOutPort, memberWithdrawalLogPort, phoneChangeLogPort, applicationUseCase, signupVerificationPort, smsSender,
             tokenIssuer, tokenStore, passwordHasher, kakaoAuthPort, googleAuthPort, kakaoLocalApi, policyUseCase,
-            objectStorage, auditLogPort, "", 2592000L);
+            objectStorage, auditLogPort, safetySignalPort, "", 2592000L);
 
     @Test
     @DisplayName("탈퇴 처리하면 개인정보를 파기하고 refreshToken을 폐기하고 아바타를 삭제한다")

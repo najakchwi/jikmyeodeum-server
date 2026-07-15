@@ -2,6 +2,7 @@ package com.sportsmate.server.infrastructure.adapter.out.push;
 
 import com.sportsmate.server.common.port.out.push.PushMessage;
 import com.sportsmate.server.common.port.out.push.PushOutPort;
+import com.sportsmate.server.infrastructure.monitoring.ExternalDependencyMonitor;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -12,14 +13,16 @@ public class ExpoPushAdapter implements PushOutPort {
     private static final String EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
     private final RestClient restClient;
+    private final ExternalDependencyMonitor externalDependencyMonitor;
 
-    public ExpoPushAdapter(RestClient restClient) {
+    public ExpoPushAdapter(RestClient restClient, ExternalDependencyMonitor externalDependencyMonitor) {
         this.restClient = restClient;
+        this.externalDependencyMonitor = externalDependencyMonitor;
     }
 
     @Override
     public void send(PushMessage message) {
-        restClient.post()
+        externalDependencyMonitor.observe("expo-push", () -> restClient.post()
                 .uri(EXPO_PUSH_URL)
                 .body(new ExpoPushRequest(
                         message.to(),
@@ -30,7 +33,7 @@ public class ExpoPushAdapter implements PushOutPort {
                         1,
                         channelId(message)))
                 .retrieve()
-                .toBodilessEntity();
+                .toBodilessEntity());
     }
 
     private String channelId(PushMessage message) {

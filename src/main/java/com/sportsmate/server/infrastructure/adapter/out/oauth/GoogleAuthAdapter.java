@@ -3,6 +3,7 @@ package com.sportsmate.server.infrastructure.adapter.out.oauth;
 import com.sportsmate.server.common.port.out.oauth.GoogleAuthPort;
 import com.sportsmate.server.common.port.out.oauth.InvalidSocialTokenException;
 import com.sportsmate.server.common.port.out.oauth.SocialUserInfo;
+import com.sportsmate.server.infrastructure.monitoring.ExternalDependencyMonitor;
 import org.springframework.beans.factory.annotation.Value;
 import java.util.List;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -20,22 +21,25 @@ import org.springframework.stereotype.Component;
 public class GoogleAuthAdapter implements GoogleAuthPort {
 
     private final NimbusJwtDecoder jwtDecoder;
+    private final ExternalDependencyMonitor externalDependencyMonitor;
 
     public GoogleAuthAdapter(
             @Value("${app.google.client-id}") String clientId,
             @Value("${app.google.jwks-uri}") String jwksUri,
-            @Value("${app.google.issuer}") String issuer) {
+            @Value("${app.google.issuer}") String issuer,
+            ExternalDependencyMonitor externalDependencyMonitor) {
         this.jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
         this.jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 JwtValidators.createDefaultWithIssuer(issuer),
                 new JwtClaimValidator<List<String>>("aud", aud -> aud != null && aud.contains(clientId))));
+        this.externalDependencyMonitor = externalDependencyMonitor;
     }
 
     @Override
     public SocialUserInfo verify(String idToken) {
         Jwt jwt;
         try {
-            jwt = jwtDecoder.decode(idToken);
+            jwt = externalDependencyMonitor.observe("google-oauth", () -> jwtDecoder.decode(idToken));
         } catch (JwtException e) {
             throw new InvalidSocialTokenException(e.getMessage());
         }

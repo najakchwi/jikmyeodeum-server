@@ -5,6 +5,7 @@ import com.sportsmate.server.common.exception.BusinessException;
 import com.sportsmate.server.common.port.out.location.KakaoLocalApiPort;
 import com.sportsmate.server.common.port.out.location.LocationRegion;
 import com.sportsmate.server.domain.member.exception.MemberErrorCode;
+import com.sportsmate.server.infrastructure.monitoring.ExternalDependencyMonitor;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -18,23 +19,26 @@ public class KakaoLocalApiAdapter implements KakaoLocalApiPort {
 
     private final RestClient restClient;
     private final String restApiKey;
+    private final ExternalDependencyMonitor externalDependencyMonitor;
 
     public KakaoLocalApiAdapter(
             RestClient restClient,
-            @Value("${app.kakao.rest-api-key}") String restApiKey) {
+            @Value("${app.kakao.rest-api-key}") String restApiKey,
+            ExternalDependencyMonitor externalDependencyMonitor) {
         this.restClient = restClient;
         this.restApiKey = restApiKey;
+        this.externalDependencyMonitor = externalDependencyMonitor;
     }
 
     @Override
     public LocationRegion reverseGeocode(double latitude, double longitude) {
         KakaoRegionResponse response;
         try {
-            response = restClient.get()
+            response = externalDependencyMonitor.observe("kakao-local", () -> restClient.get()
                     .uri(URL + "?x={x}&y={y}", longitude, latitude)
                     .header("Authorization", "KakaoAK " + restApiKey)
                     .retrieve()
-                    .body(KakaoRegionResponse.class);
+                    .body(KakaoRegionResponse.class));
         } catch (RestClientException e) {
             throw new BusinessException(MemberErrorCode.LOCATION_GEOCODING_FAILED);
         }

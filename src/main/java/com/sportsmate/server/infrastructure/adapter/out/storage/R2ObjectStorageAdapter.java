@@ -5,6 +5,7 @@ import com.sportsmate.server.common.port.out.storage.ObjectStorage;
 import com.sportsmate.server.common.port.out.storage.ObjectUploadCommand;
 import com.sportsmate.server.common.port.out.storage.StoredObject;
 import com.sportsmate.server.infrastructure.adapter.out.storage.exception.ObjectStorageErrorCode;
+import com.sportsmate.server.infrastructure.monitoring.ExternalDependencyMonitor;
 import java.io.IOException;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,15 +28,18 @@ public class R2ObjectStorageAdapter implements ObjectStorage {
     private final S3Client s3Client;
     private final String bucket;
     private final String publicBaseUrl;
+    private final ExternalDependencyMonitor externalDependencyMonitor;
 
     public R2ObjectStorageAdapter(
             S3Client s3Client,
             @Value("${app.r2.bucket}") String bucket,
-            @Value("${app.r2.public-base-url}") String publicBaseUrl
+            @Value("${app.r2.public-base-url}") String publicBaseUrl,
+            ExternalDependencyMonitor externalDependencyMonitor
     ) {
         this.s3Client = s3Client;
         this.bucket = bucket;
         this.publicBaseUrl = stripTrailingSlash(publicBaseUrl);
+        this.externalDependencyMonitor = externalDependencyMonitor;
     }
 
     @Override
@@ -51,7 +55,7 @@ public class R2ObjectStorageAdapter implements ObjectStorage {
                     .contentLength((long) bytes.length)
                     .build();
 
-            s3Client.putObject(request, RequestBody.fromBytes(bytes));
+            externalDependencyMonitor.observe("r2", () -> s3Client.putObject(request, RequestBody.fromBytes(bytes)));
 
             return new StoredObject(
                     command.objectKey(),
@@ -69,10 +73,10 @@ public class R2ObjectStorageAdapter implements ObjectStorage {
     @Override
     public void delete(String objectKey) {
         try {
-            s3Client.deleteObject(DeleteObjectRequest.builder()
+            externalDependencyMonitor.observe("r2", () -> s3Client.deleteObject(DeleteObjectRequest.builder()
                     .bucket(bucket)
                     .key(objectKey)
-                    .build());
+                    .build()));
         } catch (SdkException exception) {
             throw new BusinessException(ObjectStorageErrorCode.DELETE_FAILED, objectKey, exception);
         }
@@ -81,10 +85,11 @@ public class R2ObjectStorageAdapter implements ObjectStorage {
     @Override
     public Optional<byte[]> download(String objectKey) {
         try {
-            ResponseBytes<GetObjectResponse> response = s3Client.getObjectAsBytes(GetObjectRequest.builder()
+            ResponseBytes<GetObjectResponse> response = externalDependencyMonitor.observe("r2",
+                    () -> s3Client.getObjectAsBytes(GetObjectRequest.builder()
                     .bucket(bucket)
                     .key(objectKey)
-                    .build());
+                    .build()));
             return Optional.of(response.asByteArray());
         } catch (NoSuchKeyException exception) {
             return Optional.empty();

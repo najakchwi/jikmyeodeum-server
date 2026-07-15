@@ -24,3 +24,8 @@ spring:
 logging:
   level:
     org.hibernate.SQL: info
+
+app:
+  swagger:
+    username: ${SWAGGER_DOCS_USERNAME}
+    password: ${SWAGGER_DOCS_PASSWORD}

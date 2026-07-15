@@ -6,12 +6,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.List;
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -36,17 +32,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String token = extractToken(request);
 
-        if (token != null && jwtProvider.validate(token)) {
-            String memberId = jwtProvider.extractMemberId(token);
-            if (memberId != null) {
-                List<GrantedAuthority> authorities = jwtProvider.extractRoles(token).stream()
-                        .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
-                        .toList();
-
-                var auth = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
+        if (token != null) {
+            jwtProvider.toAuthentication(token).ifPresent(auth -> {
                 SecurityContextHolder.getContext().setAuthentication(auth);
-                MDC.put("memberId", memberId);
-            }
+                MDC.put("memberId", auth.getName());
+            });
         }
 
         filterChain.doFilter(request, response);

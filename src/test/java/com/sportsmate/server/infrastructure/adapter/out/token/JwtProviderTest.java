@@ -118,6 +118,26 @@ class JwtProviderTest {
     }
 
     @Test
+    @DisplayName("유효한 access token은 Authentication으로 변환된다")
+    void toAuthentication_withValidAccessToken_returnsAuthentication() {
+        String token = jwtProvider.issue("member-1", Role.ADMIN).accessToken();
+
+        var authentication = jwtProvider.toAuthentication(token);
+
+        assertThat(authentication).isPresent();
+        assertThat(authentication.get().getName()).isEqualTo("member-1");
+        assertThat(authentication.get().getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    @DisplayName("무효 토큰은 Authentication으로 변환되지 않는다")
+    void toAuthentication_withInvalidToken_returnsEmpty() {
+        assertThat(jwtProvider.toAuthentication("not-a-jwt")).isEmpty();
+    }
+
+    @Test
     @DisplayName("이미 만료된 서비스 access token은 validate에서 false를 반환한다")
     void validate_withExpiredServiceToken_returnsFalse() {
         String token = jwtProvider.issueServiceToken("admin-service", Role.ADMIN, -1L);
