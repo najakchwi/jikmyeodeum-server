@@ -8,6 +8,7 @@ import com.sportsmate.server.domain.member.port.out.MemberOutPort;
 import com.sportsmate.server.domain.notification.event.PushNotificationRequestedEvent;
 import com.sportsmate.server.domain.notification.port.in.NotificationUseCase;
 import com.sportsmate.server.domain.notification.port.in.PushTokenUseCase;
+import com.sportsmate.server.domain.notification.port.out.ChatMuteQueryPort;
 import com.sportsmate.server.domain.notification.port.out.NotificationOutPort;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,12 +20,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NotificationService implements NotificationUseCase, PushTokenUseCase {
     private final NotificationOutPort notificationOutPort;
+    private final ChatMuteQueryPort chatMuteQueryPort;
     private final MemberOutPort memberOutPort;
     private final EventPublisher eventPublisher;
 
-    public NotificationService(NotificationOutPort notificationOutPort, MemberOutPort memberOutPort,
+    public NotificationService(NotificationOutPort notificationOutPort, ChatMuteQueryPort chatMuteQueryPort,
+            MemberOutPort memberOutPort,
             EventPublisher eventPublisher) {
         this.notificationOutPort = notificationOutPort;
+        this.chatMuteQueryPort = chatMuteQueryPort;
         this.memberOutPort = memberOutPort;
         this.eventPublisher = eventPublisher;
     }
@@ -61,7 +65,7 @@ public class NotificationService implements NotificationUseCase, PushTokenUseCas
     public void createAndPush(Long memberId, String type, String title, String body,
             String targetKind, String applicationId, String chatId) {
         notificationOutPort.create(memberId, type, title, body, targetKind, applicationId, chatId);
-        if (!pushAllowed(memberId, type)) {
+        if (!pushAllowed(memberId, type, chatId)) {
             return;
         }
         memberOutPort.findExpoPushTokenById(memberId)
@@ -101,9 +105,9 @@ public class NotificationService implements NotificationUseCase, PushTokenUseCas
                 data.review(), data.marketing());
     }
 
-    private boolean pushAllowed(Long memberId, String type) {
+    private boolean pushAllowed(Long memberId, String type, String chatId) {
         NotificationOutPort.SettingsData settings = notificationOutPort.getOrCreateSettings(memberId);
-        return switch (type) {
+        boolean globalAllowed = switch (type) {
             case "match" -> settings.matchRequest();
             case "matchSchedule" -> settings.matchSchedule();
             case "chat" -> settings.chat();
@@ -111,6 +115,10 @@ public class NotificationService implements NotificationUseCase, PushTokenUseCas
             case "marketing" -> settings.marketing();
             default -> true;
         };
+        if (!globalAllowed) {
+            return false;
+        }
+        return !("chat".equals(type) && chatId != null && chatMuteQueryPort.isMuted(memberId, chatId));
     }
 
     private Map<String, String> pushData(String type, String targetKind, String applicationId,

@@ -362,6 +362,23 @@ class ApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("경기 매칭 중 예외가 발생해도 보정 조회로 실패 경기 대기 인원을 총 신청 수에 반영한다")
+    void matchWaitingApplications_whenGameFails_countsApplicantsWithFallbackLookup() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "10"));
+        applicationOutPort.save(Application.create("3", 3L, "20"));
+        applicationOutPort.save(Application.create("4", 4L, "20"));
+        applicationOutPort.failOnFindWaitingOnceGameIds.add("10");
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(2);
+        assertThat(result.gamesFailed()).isEqualTo(1);
+        assertThat(result.totalApplicants()).isEqualTo(4);
+        assertThat(result.unmatchedPeople()).isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("회원 조회에 실패한 대기 신청자는 제외하고 같은 경기의 나머지 신청자끼리 매칭한다")
     void matchWaitingApplications_withMissingMember_excludesApplicationAndMatchesRemainingCandidates() {
         applicationOutPort.save(Application.create("1", 1L, "10"));
@@ -471,6 +488,8 @@ class ApplicationServiceTest {
     private static class FakeApplicationOutPort implements ApplicationOutPort {
         private final Map<String, Application> applications = new LinkedHashMap<>();
         private final Set<String> failOnFindWaitingGameIds = new java.util.HashSet<>();
+        private final Set<String> failOnFindWaitingOnceGameIds = new java.util.HashSet<>();
+        private final Set<String> failOnSaveMatchedGameIds = new java.util.HashSet<>();
         private long chattingCancellationCount = 0;
         private long nextId = 100;
 
@@ -482,6 +501,9 @@ class ApplicationServiceTest {
                     application.getChatId(), application.getMatchedAt(), application.getExpiresAt(),
                     application.getResponse(), application.getCancelledAt(), application.getMatchScore(),
                     application.getRejectedMemberIds());
+            if (failOnSaveMatchedGameIds.contains(toStore.getGameId()) && "matched".equals(toStore.getStatus())) {
+                throw new IllegalStateException("broken match save");
+            }
             applications.put(toStore.getId(), toStore);
             return toStore;
         }
@@ -538,6 +560,9 @@ class ApplicationServiceTest {
 
         @Override
         public List<Application> findWaitingByGameId(String gameId) {
+            if (failOnFindWaitingOnceGameIds.remove(gameId)) {
+                throw new IllegalStateException("broken game data once");
+            }
             if (failOnFindWaitingGameIds.contains(gameId)) {
                 throw new IllegalStateException("broken game data");
             }
@@ -759,6 +784,12 @@ class ApplicationServiceTest {
         @Override public MessageResult postSystemMessage(String chatId, String text) {
             systemMessages.add(chatId + ":" + text);
             return null;
+        }
+        @Override public boolean isParticipant(Long memberId, String chatId) {
+            return false;
+        }
+        @Override public boolean setNotificationEnabled(Long memberId, String chatId, boolean enabled) {
+            throw new UnsupportedOperationException();
         }
     }
 

@@ -9,9 +9,12 @@ public interface ChatUseCase {
     MessagesResult messages(Long memberId, String chatId, String cursor, int size);
     MessageResult send(Long memberId, String chatId, String text);
     MessageResult postSystemMessage(String chatId, String text);
+    boolean isParticipant(Long memberId, String chatId);
+    boolean setNotificationEnabled(Long memberId, String chatId, boolean enabled);
 
     record ChatRoomResult(String id, String applicationId, MemberProfile opponent,
-            boolean isGameDone, boolean isReviewed, boolean isCancelled) {}
+            boolean isGameDone, boolean isReviewed, boolean isCancelled,
+            boolean notificationEnabled) {}
     record MessagesResult(List<MessageResult> messages, String nextCursor) {}
     record MessageResult(String id, Long senderId, String text, String sentAt, LocalDate date,
             String type) {}

@@ -27,5 +27,22 @@ public interface ApplicationUseCase {
     record MatchStatusResult(String status, MemberProfile matchedProfile, String chatId,
             LocalDateTime matchedAt, LocalDateTime expiresAt) {}
     record WaitingParticipantPreview(String nickname, String avatarUrl, String avatarColor) {}
-    record MatchBatchResult(int gamesProcessed, int gamesFailed, int pairsMatched) {}
+    record MatchBatchResult(
+            int gamesProcessed,
+            int gamesFailed,
+            int pairsMatched,
+            int totalApplicants,
+            int unmatchedPeople,
+            int personErrors,
+            int carryOver,
+            long durationMs) {
+
+        public int matchedPeople() {
+            return pairsMatched * 2;
+        }
+
+        public double matchRate() {
+            return totalApplicants == 0 ? 1.0 : (double) matchedPeople() / totalApplicants;
+        }
+    }
 }

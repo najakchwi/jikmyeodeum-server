@@ -9,6 +9,9 @@ spring:
       max-request-size: 10MB
   flyway:
     baseline-on-migrate: false
+    # DB 히스토리에만 남고 로컬 locations엔 없는 seed(예: seed/dev 미포함 프로파일) 마이그레이션을
+    # validate 실패시키지 않고 무시한다.
+    ignore-migration-patterns: "*:missing"
 
 app:
   server:
@@ -36,6 +39,42 @@ app:
     secret-access-key: ${R2_SECRET_ACCESS_KEY}
     bucket: ${R2_BUCKET}
     public-base-url: ${R2_PUBLIC_BASE_URL}
+  discord:
+    debounce-ttl: ${DISCORD_ALERT_DEBOUNCE_TTL:PT15M}
+    webhooks:
+      critical: ${DISCORD_WEBHOOK_CRITICAL:}
+      warning: ${DISCORD_WEBHOOK_WARNING:}
+      info: ${DISCORD_WEBHOOK_INFO:}
+      metrics: ${DISCORD_WEBHOOK_METRICS:}
+  alert:
+    health:
+      down-threshold: ${ALERT_HEALTH_DOWN_THRESHOLD:3}
+      check-rate-ms: ${ALERT_HEALTH_CHECK_RATE_MS:60000}
+    matching:
+      match-rate-warning-threshold: ${ALERT_MATCH_RATE_WARNING_THRESHOLD:0.4}
+      deadman-grace: ${ALERT_MATCHING_DEADMAN_GRACE:PT30M}
+    external:
+      window: ${ALERT_EXTERNAL_WINDOW:PT5M}
+      failure-rate-threshold: ${ALERT_EXTERNAL_FAILURE_RATE_THRESHOLD:0.1}
+      check-rate-ms: ${ALERT_EXTERNAL_CHECK_RATE_MS:60000}
+    metrics:
+      heap-threshold: ${ALERT_METRICS_HEAP_THRESHOLD:0.85}
+      system-threshold: ${ALERT_METRICS_SYSTEM_THRESHOLD:0.85}
+      hikari-threshold: ${ALERT_METRICS_HIKARI_THRESHOLD:0.9}
+      disk-threshold: ${ALERT_METRICS_DISK_THRESHOLD:0.8}
+      gc-pause-warning-ms: ${ALERT_METRICS_GC_PAUSE_WARNING_MS:1000}
+      latency-p99-warning-ms: ${ALERT_METRICS_LATENCY_P99_WARNING_MS:3000}
+      check-rate-ms: ${ALERT_METRICS_CHECK_RATE_MS:60000}
+    safety:
+      window: ${ALERT_SAFETY_WINDOW:PT1H}
+      critical-threshold: ${ALERT_SAFETY_CRITICAL_THRESHOLD:10}
+    sms:
+      window: ${ALERT_SMS_WINDOW:PT1H}
+      sent-warning-threshold: ${ALERT_SMS_SENT_WARNING_THRESHOLD:100}
+      blocked-warning-threshold: ${ALERT_SMS_BLOCKED_WARNING_THRESHOLD:20}
+    business:
+      check-rate-ms: ${ALERT_BUSINESS_CHECK_RATE_MS:60000}
+      daily-digest-cron: ${ALERT_BUSINESS_DAILY_DIGEST_CRON:0 0 10 * * *}
 
 springdoc:
   api-docs:
@@ -44,7 +83,7 @@ springdoc:
   default-consumes-media-type: application/json;charset=UTF-8
   default-produces-media-type: application/json;charset=UTF-8
   swagger-ui:
-    path: /swagger-ui.html
+    path: /api/docs
     tags-sorter: alpha
     operations-sorter: alpha
     display-request-duration: true
@@ -54,12 +93,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,metrics
   endpoint:
     health:
       show-details: never
       probes:
         enabled: true
+  metrics:
+    enable:
+      all: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.99
 
 matching:
   minimum-score: 60

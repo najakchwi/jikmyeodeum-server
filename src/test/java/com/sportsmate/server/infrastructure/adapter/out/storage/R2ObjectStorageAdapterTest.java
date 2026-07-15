@@ -3,9 +3,12 @@ package com.sportsmate.server.infrastructure.adapter.out.storage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.sportsmate.server.common.port.out.storage.ObjectUploadCommand;
+import com.sportsmate.server.infrastructure.monitoring.ExternalDependencyMonitor;
 import java.io.ByteArrayInputStream;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,10 +22,12 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 class R2ObjectStorageAdapterTest {
 
     private final S3Client s3Client = Mockito.mock(S3Client.class);
+    private final ExternalDependencyMonitor externalDependencyMonitor = Mockito.mock(ExternalDependencyMonitor.class);
     private final R2ObjectStorageAdapter adapter = new R2ObjectStorageAdapter(
             s3Client,
             "letsports-dev",
-            "https://cdn.example.com/"
+            "https://cdn.example.com/",
+            externalDependencyMonitor
     );
 
     @Test
@@ -35,6 +40,8 @@ class R2ObjectStorageAdapterTest {
                 new ByteArrayInputStream("test".getBytes())
         );
         ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        when(externalDependencyMonitor.observe(Mockito.eq("r2"), any(Supplier.class)))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
 
         var result = adapter.upload(command);
 
@@ -49,6 +56,8 @@ class R2ObjectStorageAdapterTest {
     @DisplayName("삭제 시 R2 버킷과 object key로 deleteObject를 호출한다")
     void delete_success() {
         ArgumentCaptor<DeleteObjectRequest> requestCaptor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        when(externalDependencyMonitor.observe(Mockito.eq("r2"), any(Supplier.class)))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
 
         adapter.delete("avatars/1/image.png");
 

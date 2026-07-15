@@ -222,18 +222,48 @@ public class ApplicationService implements ApplicationUseCase {
 
     @Override
     public MatchBatchResult matchWaitingApplications() {
+        long startedAt = System.nanoTime();
         List<String> gameIds = applicationOutPort.findGameIdsWithWaitingApplications();
         int pairsMatched = 0;
         int gamesFailed = 0;
+        int totalApplicants = 0;
+        int personErrors = 0;
+        int carryOver = 0;
         for (String gameId : gameIds) {
             try {
-                pairsMatched += matchingBatchProcessor.matchWaitingPairs(gameId);
+                var gameResult = matchingBatchProcessor.matchWaitingPairs(gameId);
+                totalApplicants += gameResult.totalApplicants();
+                pairsMatched += gameResult.pairsMatched();
+                personErrors += gameResult.personErrors();
+                carryOver += gameResult.carryOver();
             } catch (RuntimeException exception) {
                 gamesFailed++;
+                totalApplicants += waitingCountOrZero(gameId);
                 log.error("Matching failed for game. gameId={}, reason={}", gameId, exception.getMessage(), exception);
             }
         }
-        return new MatchBatchResult(gameIds.size(), gamesFailed, pairsMatched);
+        long durationMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+        int matchedPeople = pairsMatched * 2;
+        int unmatchedPeople = Math.max(0, totalApplicants - matchedPeople - personErrors);
+        return new MatchBatchResult(
+                gameIds.size(),
+                gamesFailed,
+                pairsMatched,
+                totalApplicants,
+                unmatchedPeople,
+                personErrors,
+                carryOver,
+                durationMs);
+    }
+
+    private int waitingCountOrZero(String gameId) {
+        try {
+            return applicationOutPort.findWaitingByGameId(gameId).size();
+        } catch (RuntimeException exception) {
+            log.warn("Failed to count waiting applications for failed matching game. gameId={}, reason={}",
+                    gameId, exception.getMessage(), exception);
+            return 0;
+        }
     }
 
     private ApplicationResult toResult(Long memberId, Application application, boolean includeMyReview) {

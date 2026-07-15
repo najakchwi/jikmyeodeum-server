@@ -9,10 +9,13 @@ import com.sportsmate.server.domain.member.Member;
 import com.sportsmate.server.domain.member.enums.LoginType;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
 import com.sportsmate.server.domain.notification.event.PushNotificationRequestedEvent;
+import com.sportsmate.server.domain.notification.port.out.ChatMuteQueryPort;
 import com.sportsmate.server.domain.notification.port.out.NotificationOutPort;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,10 +24,11 @@ import org.junit.jupiter.api.Test;
 class NotificationServiceTest {
 
     private final FakeNotificationOutPort notificationOutPort = new FakeNotificationOutPort();
+    private final FakeChatMuteQueryPort chatMuteQueryPort = new FakeChatMuteQueryPort();
     private final FakeMemberOutPort memberOutPort = new FakeMemberOutPort();
     private final RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
     private final NotificationService notificationService = new NotificationService(
-            notificationOutPort, memberOutPort, eventPublisher);
+            notificationOutPort, chatMuteQueryPort, memberOutPort, eventPublisher);
 
     @Test
     @DisplayName("알림 생성 시 설정이 허용되어 있고 토큰이 있으면 푸시 요청 이벤트를 발행한다")
@@ -55,6 +59,43 @@ class NotificationServiceTest {
 
         assertThat(notificationOutPort.notifications).hasSize(1);
         assertThat(eventPublisher.events).isEmpty();
+    }
+
+    @Test
+    @DisplayName("채팅방이 mute 상태이면 DB 알림만 저장하고 푸시는 발송하지 않는다")
+    void createAndPush_withMutedChatRoom_doesNotSendPush() {
+        memberOutPort.updateExpoPushToken(1L, "ExponentPushToken[test]");
+        chatMuteQueryPort.mute(1L, "chat_1");
+
+        notificationService.createAndPush(1L, "chat", "새 메시지가 도착했어요",
+                "안녕하세요", "chat", null, "chat_1");
+
+        assertThat(notificationOutPort.notifications).hasSize(1);
+        assertThat(eventPublisher.events).isEmpty();
+    }
+
+    @Test
+    @DisplayName("채팅 전역 설정이 켜져 있고 mute가 없으면 채팅 푸시 요청 이벤트를 발행한다")
+    void createAndPush_withChatEnabledAndNoMute_publishesPushEvent() {
+        memberOutPort.updateExpoPushToken(1L, "ExponentPushToken[test]");
+
+        notificationService.createAndPush(1L, "chat", "새 메시지가 도착했어요",
+                "안녕하세요", "chat", null, "chat_1");
+
+        assertThat(eventPublisher.events).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("채팅방 mute는 채팅 타입에만 적용된다")
+    void createAndPush_withMutedChatRoomAndMatchType_publishesPushEvent() {
+        memberOutPort.updateExpoPushToken(1L, "ExponentPushToken[test]");
+        chatMuteQueryPort.mute(1L, "chat_1");
+
+        notificationService.createAndPush(1L, "match", "매칭이 성사됐어요",
+                "상대 프로필을 확인해보세요.", "application", "app1", "chat_1");
+
+        assertThat(notificationOutPort.notifications).hasSize(1);
+        assertThat(eventPublisher.events).hasSize(1);
     }
 
     @Test
@@ -142,6 +183,19 @@ class NotificationServiceTest {
             notifications.add(new NotificationData(
                     String.valueOf(notifications.size() + 1), memberId, type, title, body,
                     LocalDateTime.now(), false, targetKind, applicationId, chatId));
+        }
+    }
+
+    private static class FakeChatMuteQueryPort implements ChatMuteQueryPort {
+        private final Map<Long, List<String>> mutes = new LinkedHashMap<>();
+
+        @Override
+        public boolean isMuted(Long memberId, String chatId) {
+            return mutes.getOrDefault(memberId, List.of()).contains(chatId);
+        }
+
+        void mute(Long memberId, String chatId) {
+            mutes.computeIfAbsent(memberId, ignored -> new ArrayList<>()).add(chatId);
         }
     }
 

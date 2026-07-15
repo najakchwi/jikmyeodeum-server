@@ -44,16 +44,16 @@ public class ApplicationMatchingBatchProcessor {
     }
 
     @Transactional
-    public int matchWaitingPairs(String gameId) {
+    public GameMatchBatchResult matchWaitingPairs(String gameId) {
         List<Application> waiting = applicationOutPort.findWaitingByGameId(gameId);
         Map<String, Application> applicationsById = waiting.stream()
                 .collect(Collectors.toMap(Application::getId, Function.identity()));
-        List<MatchCandidate> candidates = candidatesFor(gameId, waiting);
+        CandidateBatch candidates = candidatesFor(gameId, waiting);
         if (candidates.size() < 2) {
-            return 0;
+            return new GameMatchBatchResult(waiting.size(), 0, candidates.personErrors(), waiting.size());
         }
 
-        List<MatchPair> pairs = matchingEngine.match(candidates, matchWeights);
+        List<MatchPair> pairs = matchingEngine.match(candidates.items(), matchWeights);
         for (MatchPair pair : pairs) {
             Application first = applicationsById.get(pair.applicationAId());
             Application second = applicationsById.get(pair.applicationBId());
@@ -66,16 +66,19 @@ public class ApplicationMatchingBatchProcessor {
             notificationUseCase.createAndPush(second.getMemberId(), "match", "매칭 후보가 도착했어요!",
                     "23시간 안에 매칭 결과를 확인해주세요.", "matchResult", second.getId(), null);
         }
-        return pairs.size();
+        int carryOver = (int) waiting.stream().filter(application -> "waiting".equals(application.getStatus())).count();
+        return new GameMatchBatchResult(waiting.size(), pairs.size(), candidates.personErrors(), carryOver);
     }
 
-    private List<MatchCandidate> candidatesFor(String gameId, List<Application> waiting) {
+    private CandidateBatch candidatesFor(String gameId, List<Application> waiting) {
         List<MatchCandidate> candidates = new ArrayList<>();
+        int personErrors = 0;
         for (Application application : waiting) {
             try {
                 MemberProfile profile = memberUseCase.get(application.getMemberId());
                 candidates.add(matchCandidateFactory.from(application, profile));
             } catch (RuntimeException exception) {
+                personErrors++;
                 // Log only: changing orphan waiting application status belongs to the planning state machine.
                 log.warn(
                         "Waiting application excluded from matching. gameId={}, applicationId={}, memberId={}, reason={}",
@@ -86,6 +89,15 @@ public class ApplicationMatchingBatchProcessor {
                         exception);
             }
         }
-        return candidates;
+        return new CandidateBatch(candidates, personErrors);
+    }
+
+    public record GameMatchBatchResult(int totalApplicants, int pairsMatched, int personErrors, int carryOver) {
+    }
+
+    private record CandidateBatch(List<MatchCandidate> items, int personErrors) {
+        int size() {
+            return items.size();
+        }
     }
 }

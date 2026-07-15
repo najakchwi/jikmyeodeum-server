@@ -6,6 +6,7 @@ import com.sportsmate.server.common.port.out.audit.AuditCategory;
 import com.sportsmate.server.common.port.out.audit.AuditEvent;
 import com.sportsmate.server.common.port.out.audit.AuditLogPort;
 import com.sportsmate.server.common.port.out.audit.AuditResult;
+import com.sportsmate.server.common.port.out.monitoring.SafetySignalPort;
 import com.sportsmate.server.domain.application.Application;
 import com.sportsmate.server.domain.application.port.out.ApplicationOutPort;
 import com.sportsmate.server.domain.member.Member;
@@ -25,13 +26,15 @@ public class ReportService implements ReportUseCase {
     private final ApplicationOutPort applicationOutPort;
     private final MemberOutPort memberOutPort;
     private final AuditLogPort auditLogPort;
+    private final SafetySignalPort safetySignalPort;
 
     public ReportService(ReportOutPort reportOutPort, ApplicationOutPort applicationOutPort,
-            MemberOutPort memberOutPort, AuditLogPort auditLogPort) {
+            MemberOutPort memberOutPort, AuditLogPort auditLogPort, SafetySignalPort safetySignalPort) {
         this.reportOutPort = reportOutPort;
         this.applicationOutPort = applicationOutPort;
         this.memberOutPort = memberOutPort;
         this.auditLogPort = auditLogPort;
+        this.safetySignalPort = safetySignalPort;
     }
 
     @Override
@@ -51,6 +54,7 @@ public class ReportService implements ReportUseCase {
             throw new BusinessException(ReportErrorCode.ALREADY_REPORTED);
         }
         String id = reportOutPort.save(reporterId, targetUserId, applicationId, chatId, reason, detail);
+        recordReportSignal();
         auditLogPort.record(AuditEvent.of(
                 AuditCategory.REPORT, "REPORT_RECEIVED", "MEMBER", reporterId.toString(),
                 "MEMBER", targetUserId.toString(), AuditResult.SUCCESS,
@@ -65,5 +69,13 @@ public class ReportService implements ReportUseCase {
                 "MEMBER", targetUserId.toString(), AuditResult.SUCCESS,
                 Map.of("delta", -15, "reason", "REPORT_RECEIVED", "reportId", id)));
         return new ReportResult(id, "received");
+    }
+
+    private void recordReportSignal() {
+        try {
+            safetySignalPort.recordReport();
+        } catch (RuntimeException exception) {
+            // Monitoring must not affect report creation.
+        }
     }
 }
