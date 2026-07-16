@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -67,6 +68,10 @@ public class ApplicationEntity extends BaseTimeEntity {
 
     @Column(name = "match_score")
     private Integer matchScore;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @ElementCollection
     @CollectionTable(

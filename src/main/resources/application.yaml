@@ -61,6 +61,7 @@ app:
       heap-threshold: ${ALERT_METRICS_HEAP_THRESHOLD:0.85}
       system-threshold: ${ALERT_METRICS_SYSTEM_THRESHOLD:0.85}
       hikari-threshold: ${ALERT_METRICS_HIKARI_THRESHOLD:0.9}
+      swap-threshold: ${ALERT_METRICS_SWAP_THRESHOLD:0.1}
       disk-threshold: ${ALERT_METRICS_DISK_THRESHOLD:0.8}
       gc-pause-warning-ms: ${ALERT_METRICS_GC_PAUSE_WARNING_MS:1000}
       latency-p99-warning-ms: ${ALERT_METRICS_LATENCY_P99_WARNING_MS:3000}
@@ -83,7 +84,9 @@ springdoc:
   default-consumes-media-type: application/json;charset=UTF-8
   default-produces-media-type: application/json;charset=UTF-8
   swagger-ui:
-    path: /api/docs
+    # 실제 정적 리소스는 항상 "{path 상위 경로}/swagger-ui/index.html"에 마운트된다(springdoc 하드코딩).
+    # 최종 사용자 노출 URL(/api/docs)은 SwaggerDocsController가 별도로 서빙한다.
+    path: /api/swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
     display-request-duration: true

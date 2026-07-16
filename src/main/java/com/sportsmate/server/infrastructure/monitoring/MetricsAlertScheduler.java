@@ -6,10 +6,13 @@ import com.sportsmate.server.common.port.out.alert.OpsAlertPort;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.lang.management.ManagementFactory;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import javax.management.ObjectName;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,32 +27,53 @@ public class MetricsAlertScheduler {
     private final double heapThreshold;
     private final double systemThreshold;
     private final double hikariThreshold;
+    private final double swapThreshold;
     private final double diskThreshold;
     private final long gcPauseWarningMs;
     private final long latencyP99WarningMs;
+    private final Function<String, Optional<Long>> osAttributeReader;
     private long previousServerErrors;
     private long previousHttpRequests;
     private long previousGcPauseCount;
     private double previousGcPauseTotalMs;
-    private long previousSwapUsedBytes;
 
+    @Autowired
     public MetricsAlertScheduler(
             MeterRegistry meterRegistry,
             OpsAlertPort opsAlertPort,
             @Value("${app.alert.metrics.heap-threshold:0.85}") double heapThreshold,
             @Value("${app.alert.metrics.system-threshold:0.85}") double systemThreshold,
             @Value("${app.alert.metrics.hikari-threshold:0.9}") double hikariThreshold,
+            @Value("${app.alert.metrics.swap-threshold:0.1}") double swapThreshold,
             @Value("${app.alert.metrics.disk-threshold:0.8}") double diskThreshold,
             @Value("${app.alert.metrics.gc-pause-warning-ms:1000}") long gcPauseWarningMs,
             @Value("${app.alert.metrics.latency-p99-warning-ms:3000}") long latencyP99WarningMs) {
+        this(meterRegistry, opsAlertPort, heapThreshold, systemThreshold, hikariThreshold,
+                swapThreshold, diskThreshold, gcPauseWarningMs, latencyP99WarningMs,
+                MetricsAlertScheduler::platformAttributeLong);
+    }
+
+    MetricsAlertScheduler(
+            MeterRegistry meterRegistry,
+            OpsAlertPort opsAlertPort,
+            double heapThreshold,
+            double systemThreshold,
+            double hikariThreshold,
+            double swapThreshold,
+            double diskThreshold,
+            long gcPauseWarningMs,
+            long latencyP99WarningMs,
+            Function<String, Optional<Long>> osAttributeReader) {
         this.meterRegistry = meterRegistry;
         this.opsAlertPort = opsAlertPort;
         this.heapThreshold = heapThreshold;
         this.systemThreshold = systemThreshold;
         this.hikariThreshold = hikariThreshold;
+        this.swapThreshold = swapThreshold;
         this.diskThreshold = diskThreshold;
         this.gcPauseWarningMs = gcPauseWarningMs;
         this.latencyP99WarningMs = latencyP99WarningMs;
+        this.osAttributeReader = osAttributeReader;
     }
 
     @Scheduled(fixedRateString = "${app.alert.metrics.check-rate-ms:60000}")
@@ -94,20 +118,11 @@ public class MetricsAlertScheduler {
             return;
         }
         long used = Math.max(0, totalSwap.get() - freeSwap.get());
-        boolean increased = previousSwapUsedBytes > 0 && used > previousSwapUsedBytes;
-        previousSwapUsedBytes = used;
-        if (used > 0 || increased) {
-            opsAlertPort.notify(AlertSeverity.WARNING, new AlertMessage(
-                    "Swap 사용 감지",
-                    "Swap memory is in use.",
-                    Map.of(
-                            "usedMb", String.valueOf(bytesToMb(used)),
-                            "totalMb", String.valueOf(bytesToMb(totalSwap.get())),
-                            "increased", String.valueOf(increased)),
-                    "metric:system:swap"));
-        } else {
-            opsAlertPort.resolve("metric:system:swap");
-        }
+        alertRatio(AlertSeverity.WARNING, "Swap 사용률", "metric:system:swap",
+                (double) used / totalSwap.get(), swapThreshold,
+                Map.of(
+                        "usedMb", String.valueOf(bytesToMb(used)),
+                        "totalMb", String.valueOf(bytesToMb(totalSwap.get()))));
     }
 
     private void checkDisk() {
@@ -223,13 +238,24 @@ public class MetricsAlertScheduler {
     }
 
     private void alertRatio(AlertSeverity severity, String title, String dedupeKey, double ratio, double threshold) {
+        alertRatio(severity, title, dedupeKey, ratio, threshold, Map.of());
+    }
+
+    private void alertRatio(
+            AlertSeverity severity,
+            String title,
+            String dedupeKey,
+            double ratio,
+            double threshold,
+            Map<String, String> extraFields) {
         if (ratio >= threshold) {
+            Map<String, String> fields = new HashMap<>(extraFields);
+            fields.put("value", String.format("%.1f%%", ratio * 100));
+            fields.put("threshold", String.format("%.1f%%", threshold * 100));
             opsAlertPort.notify(severity, new AlertMessage(
                     title,
                     title + " is above threshold.",
-                    Map.of(
-                            "value", String.format("%.1f%%", ratio * 100),
-                            "threshold", String.format("%.1f%%", threshold * 100)),
+                    Map.copyOf(fields),
                     dedupeKey));
         } else {
             opsAlertPort.resolve(dedupeKey);
@@ -256,6 +282,10 @@ public class MetricsAlertScheduler {
     }
 
     private Optional<Long> attributeLong(String attribute) {
+        return osAttributeReader.apply(attribute);
+    }
+
+    private static Optional<Long> platformAttributeLong(String attribute) {
         try {
             Object value = ManagementFactory.getPlatformMBeanServer().getAttribute(
                     ObjectName.getInstance(ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME), attribute);

@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,7 +76,12 @@ public class ApplicationService implements ApplicationUseCase {
             throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
         }
         Application application = Application.create(null, memberId, gameId);
-        Application saved = applicationOutPort.save(application);
+        Application saved;
+        try {
+            saved = applicationOutPort.saveAndFlush(application);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
+        }
         return get(memberId, saved.getId());
     }
 
@@ -121,6 +128,8 @@ public class ApplicationService implements ApplicationUseCase {
                     .ifPresent(opponent -> {
                         opponent.resetToWaiting();
                         applicationOutPort.save(opponent);
+                        notificationUseCase.createAndPush(opponentId, "match", "매칭이 취소됐어요",
+                                "상대방이 매칭을 취소했어요. 다시 매칭을 진행해드릴게요.", "findMatch", null, null);
                     });
             applyMatchedCancellationPenalty(memberId);
         }
@@ -157,7 +166,11 @@ public class ApplicationService implements ApplicationUseCase {
             applicationOutPort.addParticipant(chatId, application);
         }
         application.confirm(chatId);
-        applicationOutPort.save(application);
+        try {
+            applicationOutPort.saveAndFlush(application);
+        } catch (OptimisticLockingFailureException exception) {
+            throw new BusinessException(ApplicationErrorCode.MATCH_NOT_READY);
+        }
         chatUseCase.postSystemMessage(chatId, memberUseCase.get(memberId).nickname() + "님이 채팅에 참여했어요.");
         return toResult(memberId, application, false);
     }
@@ -179,6 +192,8 @@ public class ApplicationService implements ApplicationUseCase {
         opponent.reject();
         applicationOutPort.save(opponent);
         applicationOutPort.save(application);
+        notificationUseCase.createAndPush(opponentId, "match", "매칭이 취소됐어요",
+                "상대방이 매칭을 취소했어요. 다시 매칭을 진행해드릴게요.", "findMatch", null, null);
         return toResult(memberId, application, false);
     }
 

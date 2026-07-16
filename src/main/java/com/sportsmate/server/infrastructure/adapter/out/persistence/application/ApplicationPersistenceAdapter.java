@@ -37,6 +37,11 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
     }
 
     @Override
+    public Application saveAndFlush(Application application) {
+        return toDomain(repository.saveAndFlush(toEntity(application)));
+    }
+
+    @Override
     public String createMatch(Application application, Application opponent) {
         LocalDateTime now = LocalDateTime.now();
         MatchEntity match = matchRepository.save(MatchEntity.builder()
@@ -140,6 +145,7 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 .appliedAt(application.getAppliedAt())
                 .cancelledAt(application.getCancelledAt())
                 .matchScore(application.getMatchScore())
+                .version(application.getVersion())
                 .rejectedMemberIds(application.getRejectedMemberIds())
                 .build();
     }
@@ -158,6 +164,7 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 entity.getResponse(),
                 entity.getCancelledAt(),
                 entity.getMatchScore(),
-                entity.getRejectedMemberIds());
+                entity.getRejectedMemberIds(),
+                entity.getVersion());
     }
 }

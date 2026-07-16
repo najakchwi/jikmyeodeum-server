@@ -24,7 +24,8 @@ public interface ApplicationJpaRepository extends JpaRepository<ApplicationEntit
             + "ORDER BY a.appliedAt ASC")
     List<ApplicationEntity> findByGameIdAndStatusOrderByAppliedAtAsc(
             @Param("gameId") Long gameId, @Param("status") String status);
-    List<Long> findDistinctGameIdByStatus(String status);
+    @Query("SELECT DISTINCT a.gameId FROM ApplicationEntity a WHERE a.status = :status")
+    List<Long> findDistinctGameIdByStatus(@Param("status") String status);
     boolean existsByMemberIdAndGameIdAndStatusNot(Long memberId, Long gameId, String status);
     long countByGameIdAndStatusNot(Long gameId, String status);
     long countByGameIdAndStatus(Long gameId, String status);

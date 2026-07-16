@@ -53,6 +53,8 @@ import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 @DisplayName("ApplicationService 단위 테스트")
 class ApplicationServiceTest {
@@ -86,8 +88,8 @@ class ApplicationServiceTest {
             notificationUseCase, chatUseCase, reviewOutPort, matchingBatchProcessor);
 
     @Test
-    @DisplayName("매칭된 신청을 취소하면 상대 신청은 대기 상태로 돌아가고 취소자는 신뢰도가 즉시 차감된다")
-    void cancel_matchedApplication_resetsOpponentToWaitingAndAppliesPenalty() {
+    @DisplayName("매칭된 신청을 취소하면 상대 신청은 대기 상태로 돌아가고 상대에게 알림을 보낸 뒤 취소자는 신뢰도가 즉시 차감된다")
+    void cancel_matchedApplication_resetsOpponentToWaitingNotifiesAndAppliesPenalty() {
         Application mine = Application.create("1", 1L, "10");
         Application opponent = Application.create("2", 2L, "10");
         mine.assign(2L);
@@ -107,6 +109,7 @@ class ApplicationServiceTest {
         assertThat(resetOpponent.getMatchedAt()).isNull();
         assertThat(resetOpponent.getExpiresAt()).isNull();
         assertThat(resetOpponent.getResponse()).isNull();
+        assertThat(notificationUseCase.pushed).containsExactly("2:매칭이 취소됐어요");
         assertThat(memberOutPort.members.get(1L).getTrustScore()).isEqualTo(97);
     }
 
@@ -132,6 +135,23 @@ class ApplicationServiceTest {
                 .isNull();
         assertThat(applicationOutPort.createdMatches).containsExactly("solo:1");
         assertThat(chatUseCase.systemMessages).containsExactly("30:member1님이 채팅에 참여했어요.");
+    }
+
+    @Test
+    @DisplayName("수락 저장 중 낙관적 락 충돌이 발생하면 매칭 준비 전 상태로 응답한다")
+    void accept_whenOptimisticLockFails_throwsMatchNotReady() {
+        Application mine = Application.create("1", 1L, "10");
+        Application opponent = Application.create("2", 2L, "10");
+        mine.assign(2L);
+        opponent.assign(1L);
+        applicationOutPort.save(mine);
+        applicationOutPort.save(opponent);
+        applicationOutPort.failOnSaveAndFlushOptimisticLock = true;
+
+        assertThatThrownBy(() -> applicationService.accept(1L, "1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.MATCH_NOT_READY);
     }
 
     @Test
@@ -290,6 +310,42 @@ class ApplicationServiceTest {
         assertThat(reapplied.id()).isNotEqualTo(first.id());
         assertThat(applicationOutPort.findByMemberIdAndGameId(1L, "10").orElseThrow().getStatus())
                 .isEqualTo("waiting");
+    }
+
+    @Test
+    @DisplayName("동시 신청으로 DB 유니크 제약이 충돌하면 이미 신청한 상태로 응답한다")
+    void apply_whenUniqueConstraintFails_throwsAlreadyApplied() {
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        applicationOutPort.failOnSaveAndFlushDataIntegrity = true;
+
+        assertThatThrownBy(() -> applicationService.apply(1L, "10"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED);
+    }
+
+    @Test
+    @DisplayName("매칭을 거절하면 상대 신청을 대기 상태로 돌리고 상대에게 알림을 보낸다")
+    void reject_matchedApplication_resetsOpponentAndNotifies() {
+        Application mine = Application.create("1", 1L, "10");
+        Application opponent = Application.create("2", 2L, "10");
+        mine.assign(2L);
+        opponent.assign(1L);
+        applicationOutPort.save(mine);
+        applicationOutPort.save(opponent);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+
+        var result = applicationService.reject(1L, "1");
+
+        assertThat(result.status()).isEqualTo("waiting");
+        Application resetOpponent = applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow();
+        assertThat(resetOpponent.getStatus()).isEqualTo("waiting");
+        assertThat(resetOpponent.getMatchedMemberId()).isNull();
+        assertThat(notificationUseCase.pushed).containsExactly("2:매칭이 취소됐어요");
     }
 
     @Test
@@ -492,6 +548,8 @@ class ApplicationServiceTest {
         private final Set<String> failOnSaveMatchedGameIds = new java.util.HashSet<>();
         private long chattingCancellationCount = 0;
         private long nextId = 100;
+        private boolean failOnSaveAndFlushDataIntegrity = false;
+        private boolean failOnSaveAndFlushOptimisticLock = false;
 
         @Override
         public Application save(Application application) {
@@ -506,6 +564,17 @@ class ApplicationServiceTest {
             }
             applications.put(toStore.getId(), toStore);
             return toStore;
+        }
+
+        @Override
+        public Application saveAndFlush(Application application) {
+            if (failOnSaveAndFlushDataIntegrity) {
+                throw new DataIntegrityViolationException("duplicate active application");
+            }
+            if (failOnSaveAndFlushOptimisticLock) {
+                throw new ObjectOptimisticLockingFailureException(Application.class, application.getId());
+            }
+            return save(application);
         }
 
         private final List<String> createdMatches = new java.util.ArrayList<>();
