@@ -4,4 +4,5 @@ public interface ProfileOption {
     String value();
     String label();
     String description();
+    boolean active();
 }

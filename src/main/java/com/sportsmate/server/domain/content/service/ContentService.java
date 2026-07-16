@@ -4,6 +4,7 @@ import com.sportsmate.server.common.port.out.storage.ObjectStorage;
 import com.sportsmate.server.domain.content.port.in.ContentUseCase;
 import com.sportsmate.server.domain.content.port.out.ContentOutPort;
 import com.sportsmate.server.domain.game.port.out.TeamOutPort;
+import com.sportsmate.server.domain.content.port.in.ContentUseCase.ProfileOptionGroup;
 import com.sportsmate.server.domain.member.enums.AgePref;
 import com.sportsmate.server.domain.member.enums.GenderPref;
 import com.sportsmate.server.domain.member.enums.Personality;
@@ -65,17 +66,36 @@ public class ContentService implements ContentUseCase {
 
     private ProfileOptions profileOptions() {
         return new ProfileOptions(
-                options(WatchStyle.values()),
-                options(Personality.values()),
-                options(TalkStyle.values()),
-                options(SmokingStatus.values()),
+                new ProfileOptionGroup(
+                        options(WatchStyle.activeValues()),
+                        WatchStyle.MULTI_SELECTABLE,
+                        WatchStyle.MAX_COUNT),
+                new ProfileOptionGroup(
+                        options(Personality.activeValues()),
+                        Personality.MULTI_SELECTABLE,
+                        Personality.MAX_COUNT),
+                new ProfileOptionGroup(
+                        options(TalkStyle.activeValues()),
+                        TalkStyle.MULTI_SELECTABLE,
+                        TalkStyle.MAX_COUNT),
+                new ProfileOptionGroup(
+                        options(SmokingStatus.activeValues()),
+                        SmokingStatus.MULTI_SELECTABLE,
+                        SmokingStatus.MAX_COUNT),
                 options(GenderPref.values()),
                 options(AgePref.values()),
                 options(SmokingPref.values()));
     }
 
+    private List<EnumOption> options(List<? extends ProfileOption> options) {
+        return options.stream()
+                .map(option -> new EnumOption(option.value(), option.label(), option.description()))
+                .toList();
+    }
+
     private List<EnumOption> options(ProfileOption[] options) {
         return Arrays.stream(options)
+                .filter(ProfileOption::active)
                 .map(option -> new EnumOption(option.value(), option.label(), option.description()))
                 .toList();
     }

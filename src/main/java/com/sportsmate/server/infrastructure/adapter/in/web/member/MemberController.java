@@ -170,8 +170,8 @@ public class MemberController {
     public record UpdateStyleRequest(
             @Schema(description = "응원팀 이름", example = "LG 트윈스", nullable = true)
             String team,
-            @Schema(description = "관람 스타일. 최대 2개", example = "[\"cheer\", \"food\"]")
-            @Size(max = 2) List<WatchStyle> watchStyles,
+            @Schema(description = "관람 스타일. 선택 정책은 /content/bootstrap의 profileOptions 정책 필드 기준", example = "[\"cheer\", \"food\"]")
+            @Size(max = 10) List<WatchStyle> watchStyles,
             @Schema(description = "본인 성격", example = "tension", nullable = true)
             Personality personality,
             @Schema(description = "대화 스타일", example = "talkative", nullable = true)
