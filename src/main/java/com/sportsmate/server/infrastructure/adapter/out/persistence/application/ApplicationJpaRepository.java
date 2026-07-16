@@ -1,8 +1,9 @@
 package com.sportsmate.server.infrastructure.adapter.out.persistence.application;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,6 +28,7 @@ public interface ApplicationJpaRepository extends JpaRepository<ApplicationEntit
     @Query("SELECT DISTINCT a.gameId FROM ApplicationEntity a WHERE a.status = :status")
     List<Long> findDistinctGameIdByStatus(@Param("status") String status);
     boolean existsByMemberIdAndGameIdAndStatusNot(Long memberId, Long gameId, String status);
+    boolean existsByMemberIdAndGameDateAndStatusNot(Long memberId, LocalDate gameDate, String status);
     long countByGameIdAndStatusNot(Long gameId, String status);
     long countByGameIdAndStatus(Long gameId, String status);
     long countByMemberIdAndStatusAndMatchIdIsNotNullAndCancelledAtGreaterThanEqual(

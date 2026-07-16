@@ -21,6 +21,7 @@ public interface ApplicationOutPort {
     List<Application> findWaitingByGameId(String gameId);
     List<String> findGameIdsWithWaitingApplications();
     boolean existsActiveByMemberIdAndGameId(Long memberId, String gameId);
+    boolean existsActiveByMemberIdAndDate(Long memberId, LocalDate date);
     List<LocalDate> findAppliedDates(Long memberId, int year, int month);
     long countChattingCancellationsSince(Long memberId, LocalDateTime since);
 }

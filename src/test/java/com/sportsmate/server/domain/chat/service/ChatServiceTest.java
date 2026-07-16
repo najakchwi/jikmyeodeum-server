@@ -197,6 +197,9 @@ class ChatServiceTest {
         @Override public boolean existsActiveByMemberIdAndGameId(Long memberId, String gameId) {
             return false;
         }
+        @Override public boolean existsActiveByMemberIdAndDate(Long memberId, LocalDate date) {
+            return false;
+        }
         @Override public List<LocalDate> findAppliedDates(Long memberId, int year, int month) {
             return List.of();
         }

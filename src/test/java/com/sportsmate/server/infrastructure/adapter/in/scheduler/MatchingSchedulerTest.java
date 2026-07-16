@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @DisplayName("MatchingScheduler 단위 테스트")
 class MatchingSchedulerTest {
@@ -21,7 +22,7 @@ class MatchingSchedulerTest {
         RecordingAlertPort alerts = new RecordingAlertPort();
         JobHeartbeat heartbeat = new JobHeartbeat();
         var scheduler = new MatchingScheduler(
-                new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(1, 0, 1, 2, 0, 0, 0, 10)),
+                new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(1, 0, 0, 1, 2, 0, 0, 0, 10)),
                 alerts,
                 heartbeat,
                 0.4);
@@ -37,7 +38,7 @@ class MatchingSchedulerTest {
     void matchWaitingApplications_withGameFailure_sendsWarning() {
         RecordingAlertPort alerts = new RecordingAlertPort();
         var scheduler = new MatchingScheduler(
-                new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(2, 1, 1, 4, 2, 0, 2, 10)),
+                new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(2, 1, 0, 1, 4, 2, 0, 2, 10)),
                 alerts,
                 new JobHeartbeat(),
                 0.4);
@@ -60,6 +61,17 @@ class MatchingSchedulerTest {
         scheduler.matchWaitingApplications();
 
         assertThat(alerts.sent).anyMatch(alert -> alert.severity() == AlertSeverity.CRITICAL);
+    }
+
+    @Test
+    @DisplayName("매칭 스케줄 기본 크론은 9시·15시·21시 하루 3회다")
+    void matchWaitingApplications_hasTripleDailyDefaultCron() throws NoSuchMethodException {
+        Scheduled scheduled = MatchingScheduler.class
+                .getMethod("matchWaitingApplications")
+                .getAnnotation(Scheduled.class);
+
+        assertThat(scheduled.cron()).isEqualTo("${app.matching.schedule-cron:0 0 9,15,21 * * *}");
+        assertThat(scheduled.zone()).isEqualTo("Asia/Seoul");
     }
 
     private static class StubApplicationUseCase implements ApplicationUseCase {

@@ -75,12 +75,18 @@ public class ApplicationService implements ApplicationUseCase {
         if (applicationOutPort.existsActiveByMemberIdAndGameId(memberId, gameId)) {
             throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
         }
-        Application application = Application.create(null, memberId, gameId);
+        if (applicationOutPort.existsActiveByMemberIdAndDate(memberId, game.date())) {
+            throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
+        }
+        Application application = Application.create(null, memberId, gameId, game.date());
         Application saved;
         try {
             saved = applicationOutPort.saveAndFlush(application);
         } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
+            if (applicationOutPort.existsActiveByMemberIdAndGameId(memberId, gameId)) {
+                throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
+            }
+            throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
         }
         return get(memberId, saved.getId());
     }
@@ -241,10 +247,17 @@ public class ApplicationService implements ApplicationUseCase {
         List<String> gameIds = applicationOutPort.findGameIdsWithWaitingApplications();
         int pairsMatched = 0;
         int gamesFailed = 0;
+        int gamesSkipped = 0;
         int totalApplicants = 0;
         int personErrors = 0;
         int carryOver = 0;
         for (String gameId : gameIds) {
+            SkipResult skipResult = cancelWaitingIfGameAlreadyStartedOrMissing(gameId);
+            if (skipResult.skipped()) {
+                gamesSkipped++;
+                totalApplicants += skipResult.cancelledApplications();
+                continue;
+            }
             try {
                 var gameResult = matchingBatchProcessor.matchWaitingPairs(gameId);
                 totalApplicants += gameResult.totalApplicants();
@@ -263,12 +276,51 @@ public class ApplicationService implements ApplicationUseCase {
         return new MatchBatchResult(
                 gameIds.size(),
                 gamesFailed,
+                gamesSkipped,
                 pairsMatched,
                 totalApplicants,
                 unmatchedPeople,
                 personErrors,
                 carryOver,
                 durationMs);
+    }
+
+    private SkipResult cancelWaitingIfGameAlreadyStartedOrMissing(String gameId) {
+        return gameOutPort.findById(gameId)
+                .map(game -> gameAlreadyStarted(game)
+                        ? cancelWaitingApplicationsForSkippedGame(gameId, "game already started")
+                        : SkipResult.notSkipped())
+                .orElseGet(() -> cancelWaitingApplicationsForSkippedGame(gameId, "game not found"));
+    }
+
+    private boolean gameAlreadyStarted(Game game) {
+        return LocalDateTime.of(game.date(), game.time()).isBefore(LocalDateTime.now());
+    }
+
+    private SkipResult cancelWaitingApplicationsForSkippedGame(String gameId, String reason) {
+        List<Application> waitingApplications;
+        try {
+            waitingApplications = applicationOutPort.findWaitingByGameId(gameId);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to cancel skipped matching game. gameId={}, reason={}, error={}",
+                    gameId, reason, exception.getMessage(), exception);
+            return new SkipResult(true, 0);
+        }
+        waitingApplications.forEach(application -> {
+            application.cancel();
+            applicationOutPort.save(application);
+            notificationUseCase.createAndPush(application.getMemberId(), "match", "매칭이 취소됐어요",
+                    "경기 시작 시각이 지나 매칭이 취소됐어요.", "findMatch", null, null);
+        });
+        log.info("Skipped matching game and cancelled waiting applications. gameId={}, reason={}, cancelled={}",
+                gameId, reason, waitingApplications.size());
+        return new SkipResult(true, waitingApplications.size());
+    }
+
+    private record SkipResult(boolean skipped, int cancelledApplications) {
+        static SkipResult notSkipped() {
+            return new SkipResult(false, 0);
+        }
     }
 
     private int waitingCountOrZero(String gameId) {

@@ -34,7 +34,7 @@ public class MatchingScheduler {
         this.matchRateWarningThreshold = matchRateWarningThreshold;
     }
 
-    @Scheduled(cron = "0 0 9 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "${app.matching.schedule-cron:0 0 9,15,21 * * *}", zone = "Asia/Seoul")
     public void matchWaitingApplications() {
         opsAlertPort.notify(AlertSeverity.INFO, AlertMessage.of(
                 "매칭 배치 시작",
@@ -43,9 +43,10 @@ public class MatchingScheduler {
         try {
             var result = applicationUseCase.matchWaitingApplications();
             log.info(
-                    "Waiting applications matched. gamesProcessed={}, gamesFailed={}, pairsMatched={}, totalApplicants={}, unmatchedPeople={}, personErrors={}, carryOver={}, durationMs={}",
+                    "Waiting applications matched. gamesProcessed={}, gamesFailed={}, gamesSkipped={}, pairsMatched={}, totalApplicants={}, unmatchedPeople={}, personErrors={}, carryOver={}, durationMs={}",
                     result.gamesProcessed(),
                     result.gamesFailed(),
+                    result.gamesSkipped(),
                     result.pairsMatched(),
                     result.totalApplicants(),
                     result.unmatchedPeople(),
@@ -92,6 +93,7 @@ public class MatchingScheduler {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("처리 경기", String.valueOf(result.gamesProcessed()));
         fields.put("경기 실패", String.valueOf(result.gamesFailed()));
+        fields.put("경기 스킵", String.valueOf(result.gamesSkipped()));
         fields.put("총 신청", String.valueOf(result.totalApplicants()));
         fields.put("매칭 쌍", String.valueOf(result.pairsMatched()));
         fields.put("매칭 인원", String.valueOf(result.matchedPeople()));

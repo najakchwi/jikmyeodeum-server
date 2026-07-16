@@ -313,17 +313,122 @@ class ApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("동시 신청으로 DB 유니크 제약이 충돌하면 이미 신청한 상태로 응답한다")
-    void apply_whenUniqueConstraintFails_throwsAlreadyApplied() {
+    @DisplayName("같은 날짜의 다른 경기에 대기 신청이 있으면 날짜 중복으로 거절한다")
+    void apply_withWaitingApplicationOnSameDate_throwsAlreadyAppliedOnDate() {
+        LocalDate gameDate = LocalDate.now().plusDays(1);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("20", new Game(
+                "20", "KIA", "KT", "수원", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        applicationOutPort.save(Application.create("1", 1L, "10", gameDate));
+
+        assertThatThrownBy(() -> applicationService.apply(1L, "20"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
+    }
+
+    @Test
+    @DisplayName("같은 날짜 신청을 취소한 뒤에는 같은 날짜 다른 경기에 신청할 수 있다")
+    void apply_afterCancelOnSameDate_succeeds() {
+        LocalDate gameDate = LocalDate.now().plusDays(1);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("20", new Game(
+                "20", "KIA", "KT", "수원", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        var first = applicationService.apply(1L, "10");
+        applicationService.cancel(1L, first.id());
+
+        var result = applicationService.apply(1L, "20");
+
+        assertThat(result.status()).isEqualTo("waiting");
+        assertThat(result.game().id()).isEqualTo("20");
+    }
+
+    @Test
+    @DisplayName("다른 날짜 경기는 기존 신청이 있어도 신청할 수 있다")
+    void apply_withApplicationOnDifferentDate_succeeds() {
+        LocalDate firstDate = LocalDate.now().plusDays(1);
+        LocalDate secondDate = LocalDate.now().plusDays(2);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", firstDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("20", new Game(
+                "20", "KIA", "KT", "수원", secondDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+
+        applicationService.apply(1L, "10");
+        var result = applicationService.apply(1L, "20");
+
+        assertThat(result.status()).isEqualTo("waiting");
+        assertThat(result.game().id()).isEqualTo("20");
+    }
+
+    @Test
+    @DisplayName("매칭중·채팅중 신청도 같은 날짜 다른 경기 신청을 막는다")
+    void apply_withMatchedOrChattingApplicationOnSameDate_throwsAlreadyAppliedOnDate() {
+        LocalDate gameDate = LocalDate.now().plusDays(1);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("20", new Game(
+                "20", "KIA", "KT", "수원", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("30", new Game(
+                "30", "SSG", "NC", "문학", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        Application matched = Application.create("1", 1L, "10", gameDate);
+        matched.assign(2L);
+        Application chatting = Application.create("2", 3L, "20", gameDate);
+        chatting.assign(4L);
+        chatting.confirm("30");
+        applicationOutPort.save(matched);
+        applicationOutPort.save(chatting);
+
+        assertThatThrownBy(() -> applicationService.apply(1L, "20"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
+        assertThatThrownBy(() -> applicationService.apply(3L, "30"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
+    }
+
+    @Test
+    @DisplayName("같은 경기 동시 신청으로 DB 게임 유니크 제약이 충돌하면 이미 신청한 경기 상태로 응답한다")
+    void apply_whenGameUniqueConstraintFails_throwsAlreadyApplied() {
         gameOutPort.games.put("10", new Game(
                 "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
                 java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
-        applicationOutPort.failOnSaveAndFlushDataIntegrity = true;
+        applicationOutPort.failOnSaveAndFlushGameRace = true;
 
         assertThatThrownBy(() -> applicationService.apply(1L, "10"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED);
+    }
+
+    @Test
+    @DisplayName("같은 날짜 다른 경기 동시 신청으로 DB 날짜 유니크 제약이 충돌하면 날짜 중복 상태로 응답한다")
+    void apply_whenDateUniqueConstraintFails_throwsAlreadyAppliedOnDate() {
+        LocalDate gameDate = LocalDate.now().plusDays(1);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        gameOutPort.games.put("20", new Game(
+                "20", "KIA", "KT", "수원", gameDate,
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        applicationOutPort.concurrentDateRaceGameId = "20";
+
+        assertThatThrownBy(() -> applicationService.apply(1L, "10"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.ALREADY_APPLIED_ON_DATE);
     }
 
     @Test
@@ -355,11 +460,13 @@ class ApplicationServiceTest {
         applicationOutPort.save(Application.create("2", 2L, "10"));
         applicationOutPort.save(Application.create("3", 3L, "10"));
         applicationOutPort.save(Application.create("4", 4L, "20"));
+        putFutureGames("10", "20");
 
         var result = applicationService.matchWaitingApplications();
 
         assertThat(result.gamesProcessed()).isEqualTo(2);
         assertThat(result.gamesFailed()).isZero();
+        assertThat(result.gamesSkipped()).isZero();
         assertThat(result.pairsMatched()).isEqualTo(1);
         Application first = applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow();
         Application second = applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow();
@@ -382,6 +489,7 @@ class ApplicationServiceTest {
         mine.reject();
         applicationOutPort.save(mine);
         applicationOutPort.save(rejected);
+        putFutureGames("10");
 
         var result = applicationService.matchWaitingApplications();
 
@@ -401,6 +509,7 @@ class ApplicationServiceTest {
         applicationOutPort.save(Application.create("3", 3L, "20"));
         applicationOutPort.save(Application.create("4", 4L, "20"));
         applicationOutPort.failOnFindWaitingGameIds.add("10");
+        putFutureGames("10", "20");
 
         var result = applicationService.matchWaitingApplications();
 
@@ -425,6 +534,7 @@ class ApplicationServiceTest {
         applicationOutPort.save(Application.create("3", 3L, "20"));
         applicationOutPort.save(Application.create("4", 4L, "20"));
         applicationOutPort.failOnFindWaitingOnceGameIds.add("10");
+        putFutureGames("10", "20");
 
         var result = applicationService.matchWaitingApplications();
 
@@ -441,6 +551,7 @@ class ApplicationServiceTest {
         applicationOutPort.save(Application.create("2", 2L, "10"));
         applicationOutPort.save(Application.create("3", 3L, "10"));
         memberUseCase.missingMemberIds.add(2L);
+        putFutureGames("10");
 
         var result = applicationService.matchWaitingApplications();
 
@@ -464,6 +575,7 @@ class ApplicationServiceTest {
         applicationOutPort.save(Application.create("2", 2L, "20"));
         applicationOutPort.save(Application.create("3", 3L, "20"));
         memberUseCase.missingMemberIds.add(1L);
+        putFutureGames("10", "20");
 
         var result = applicationService.matchWaitingApplications();
 
@@ -476,6 +588,42 @@ class ApplicationServiceTest {
                 .isEqualTo("matched");
         assertThat(applicationOutPort.findByIdAndMemberId("3", 3L).orElseThrow().getStatus())
                 .isEqualTo("matched");
+    }
+
+    @Test
+    @DisplayName("경기 시작 시각이 지난 게임의 대기 신청은 매칭 시도 없이 취소하고 알림을 보낸다")
+    void matchWaitingApplications_withStartedGame_cancelsWaitingApplicationsAndSkipsMatching() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "10"));
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().minusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now().minusDays(2), null, null, null, null, null, null));
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(1);
+        assertThat(result.gamesFailed()).isZero();
+        assertThat(result.gamesSkipped()).isEqualTo(1);
+        assertThat(result.pairsMatched()).isZero();
+        assertThat(result.totalApplicants()).isEqualTo(2);
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
+                .isEqualTo("cancelled");
+        assertThat(applicationOutPort.findByIdAndMemberId("2", 2L).orElseThrow().getStatus())
+                .isEqualTo("cancelled");
+        assertThat(notificationUseCase.pushed).containsExactly("1:매칭이 취소됐어요", "2:매칭이 취소됐어요");
+    }
+
+    @Test
+    @DisplayName("게임을 찾을 수 없는 대기 신청도 스킵 처리하고 취소한다")
+    void matchWaitingApplications_withMissingGame_cancelsWaitingApplicationsAndSkipsMatching() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+
+        var result = applicationService.matchWaitingApplications();
+
+        assertThat(result.gamesProcessed()).isEqualTo(1);
+        assertThat(result.gamesSkipped()).isEqualTo(1);
+        assertThat(applicationOutPort.findByIdAndMemberId("1", 1L).orElseThrow().getStatus())
+                .isEqualTo("cancelled");
     }
 
     @Test
@@ -548,17 +696,18 @@ class ApplicationServiceTest {
         private final Set<String> failOnSaveMatchedGameIds = new java.util.HashSet<>();
         private long chattingCancellationCount = 0;
         private long nextId = 100;
-        private boolean failOnSaveAndFlushDataIntegrity = false;
+        private boolean failOnSaveAndFlushGameRace = false;
+        private String concurrentDateRaceGameId = null;
         private boolean failOnSaveAndFlushOptimisticLock = false;
 
         @Override
         public Application save(Application application) {
             Application toStore = application.getId() != null ? application : Application.reconstitute(
-                    String.valueOf(nextId++), application.getMemberId(), application.getGameId(),
+                    String.valueOf(nextId++), application.getMemberId(), application.getGameId(), application.getGameDate(),
                     application.getStatus(), application.getAppliedAt(), application.getMatchedMemberId(),
                     application.getChatId(), application.getMatchedAt(), application.getExpiresAt(),
                     application.getResponse(), application.getCancelledAt(), application.getMatchScore(),
-                    application.getRejectedMemberIds());
+                    application.getRejectedMemberIds(), application.getVersion());
             if (failOnSaveMatchedGameIds.contains(toStore.getGameId()) && "matched".equals(toStore.getStatus())) {
                 throw new IllegalStateException("broken match save");
             }
@@ -568,13 +717,23 @@ class ApplicationServiceTest {
 
         @Override
         public Application saveAndFlush(Application application) {
-            if (failOnSaveAndFlushDataIntegrity) {
-                throw new DataIntegrityViolationException("duplicate active application");
+            if (failOnSaveAndFlushGameRace) {
+                saveConcurrentApplication(application.getMemberId(), application.getGameId(), application.getGameDate());
+                throw new DataIntegrityViolationException("duplicate active application by game");
+            }
+            if (concurrentDateRaceGameId != null) {
+                saveConcurrentApplication(application.getMemberId(), concurrentDateRaceGameId, application.getGameDate());
+                throw new DataIntegrityViolationException("duplicate active application by date");
             }
             if (failOnSaveAndFlushOptimisticLock) {
                 throw new ObjectOptimisticLockingFailureException(Application.class, application.getId());
             }
             return save(application);
+        }
+
+        private void saveConcurrentApplication(Long memberId, String gameId, LocalDate gameDate) {
+            String id = String.valueOf(nextId++);
+            applications.put(id, Application.create(id, memberId, gameId, gameDate));
         }
 
         private final List<String> createdMatches = new java.util.ArrayList<>();
@@ -655,6 +814,14 @@ class ApplicationServiceTest {
             return applications.values().stream()
                     .filter(application -> memberId.equals(application.getMemberId()))
                     .filter(application -> gameId.equals(application.getGameId()))
+                    .anyMatch(application -> !"cancelled".equals(application.getStatus()));
+        }
+
+        @Override
+        public boolean existsActiveByMemberIdAndDate(Long memberId, LocalDate date) {
+            return applications.values().stream()
+                    .filter(application -> memberId.equals(application.getMemberId()))
+                    .filter(application -> date.equals(application.getGameDate()))
                     .anyMatch(application -> !"cancelled".equals(application.getStatus()));
         }
 
@@ -836,6 +1003,14 @@ class ApplicationServiceTest {
                 TalkStyle.TALKATIVE, SmokingStatus.NON_SMOKER, GenderPref.ANY, AgePref.ANY,
                 SmokingPref.ANY, 5, false, null, null, null, 0, 0.0, trustScore,
                 0, 0, false, Role.USER);
+    }
+
+    private void putFutureGames(String... gameIds) {
+        for (String gameId : gameIds) {
+            gameOutPort.games.put(gameId, new Game(
+                    gameId, "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                    java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+        }
     }
 
     private static class FakeChatUseCase implements ChatUseCase {

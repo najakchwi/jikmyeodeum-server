@@ -30,6 +30,7 @@ public interface ApplicationUseCase {
     record MatchBatchResult(
             int gamesProcessed,
             int gamesFailed,
+            int gamesSkipped,
             int pairsMatched,
             int totalApplicants,
             int unmatchedPeople,
