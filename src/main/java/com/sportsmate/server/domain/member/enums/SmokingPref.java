@@ -35,4 +35,5 @@ public enum SmokingPref implements ProfileOption {
 
     @Override public String label() { return label; }
     @Override public String description() { return description; }
+    @Override public boolean active() { return true; }
 }

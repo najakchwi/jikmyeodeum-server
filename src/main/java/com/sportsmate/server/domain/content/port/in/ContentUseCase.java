@@ -26,14 +26,16 @@ public interface ContentUseCase {
     record Team(Long id, String name, String shortName, String emblemUrl, String primaryColorHex) {}
 
     record ProfileOptions(
-            List<EnumOption> watchStyles,
-            List<EnumOption> personalities,
-            List<EnumOption> talkStyles,
-            List<EnumOption> smokingStatuses,
+            ProfileOptionGroup watchStyles,
+            ProfileOptionGroup personalities,
+            ProfileOptionGroup talkStyles,
+            ProfileOptionGroup smokingStatuses,
             List<EnumOption> genderPrefs,
             List<EnumOption> agePrefs,
             List<EnumOption> smokingPrefs
     ) {}
+
+    record ProfileOptionGroup(List<EnumOption> options, boolean multiSelectable, Integer maxCount) {}
 
     record EnumOption(String value, String label, String description) {}
 }

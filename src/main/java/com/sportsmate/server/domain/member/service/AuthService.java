@@ -24,6 +24,7 @@ import com.sportsmate.server.domain.member.enums.LoginType;
 import com.sportsmate.server.domain.member.enums.WithdrawalReason;
 import com.sportsmate.server.domain.member.exception.MemberErrorCode;
 import com.sportsmate.server.domain.member.policy.PasswordPolicy;
+import com.sportsmate.server.domain.member.policy.ProfileOptionPolicy;
 import com.sportsmate.server.domain.member.port.in.AuthUseCase;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
@@ -196,6 +197,8 @@ public class AuthService implements AuthUseCase {
             throw new BusinessException(MemberErrorCode.NICKNAME_ALREADY_USED);
         }
         validatePasswordIfPresent(command.password());
+        ProfileOptionPolicy.validateStyle(command.watchStyles(), command.personality(),
+                command.talkStyle(), command.smokingStatus());
         String encodedPassword = PasswordPolicy.isBlank(command.password())
                 ? null : passwordHasher.hash(command.password());
         String locationAddress = resolveLocationAddress(command);

@@ -13,6 +13,7 @@ import com.sportsmate.server.domain.member.enums.SmokingStatus;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
 import com.sportsmate.server.domain.member.exception.MemberErrorCode;
+import com.sportsmate.server.domain.member.policy.ProfileOptionPolicy;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.in.MemberUseCase;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
@@ -55,9 +56,7 @@ public class MemberService implements MemberUseCase {
     @Transactional
     public MemberProfile updateStyle(Long memberId, String team, List<WatchStyle> watchStyles,
             Personality personality, TalkStyle talkStyle, SmokingStatus smokingStatus) {
-        if (watchStyles != null && watchStyles.size() > 2) {
-            throw new BusinessException(com.sportsmate.server.common.exception.CommonErrorCode.INVALID_INPUT);
-        }
+        ProfileOptionPolicy.validateStyle(watchStyles, personality, talkStyle, smokingStatus);
         Member member = find(memberId);
         member.updateStyle(team, watchStyles, personality, talkStyle, smokingStatus);
         return MemberProfile.from(memberOutPort.save(member));
