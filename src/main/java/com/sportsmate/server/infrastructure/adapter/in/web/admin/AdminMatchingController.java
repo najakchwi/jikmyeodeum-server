@@ -37,7 +37,7 @@ public class AdminMatchingController {
     @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "대기 중인 매칭 수동 실행",
-            description = "매일 오전 9시 스케줄러(MatchingScheduler)가 실행하는 것과 동일한 매칭 배치를 "
+            description = "매일 9시·15시·21시 스케줄러(MatchingScheduler)가 실행하는 것과 동일한 매칭 배치를 "
                     + "즉시 실행한다. waiting 상태 신청을 실제로 매칭시켜 matched로 전환한다(드라이런 아님).")
     public ApiResponse<MatchBatchResult> run(
             @Parameter(hidden = true) @AuthenticationPrincipal String memberId) {
@@ -48,6 +48,7 @@ public class AdminMatchingController {
                 Map.of(
                         "gamesProcessed", result.gamesProcessed(),
                         "gamesFailed", result.gamesFailed(),
+                        "gamesSkipped", result.gamesSkipped(),
                         "pairsMatched", result.pairsMatched())));
         return ApiResponse.success(result);
     }

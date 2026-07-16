@@ -102,6 +102,10 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
     @Override public boolean existsActiveByMemberIdAndGameId(Long memberId, String gameId) {
         return repository.existsByMemberIdAndGameIdAndStatusNot(memberId, Long.parseLong(gameId), "cancelled");
     }
+    @Override public boolean existsActiveByMemberIdAndDate(Long memberId, LocalDate date) {
+        return repository.existsByMemberIdAndGameDateAndStatusNot(memberId, date, "cancelled");
+    }
+
     @Override
     public List<LocalDate> findAppliedDates(Long memberId, int year, int month) {
         YearMonth target = YearMonth.of(year, month);
@@ -131,10 +135,12 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
 
     private ApplicationEntity toEntity(Application application) {
         Long id = application.getId() == null ? null : Long.parseLong(application.getId());
+        LocalDate gameDate = resolveGameDate(application, id);
         return ApplicationEntity.builder()
                 .id(id)
                 .memberId(application.getMemberId())
                 .gameId(Long.parseLong(application.getGameId()))
+                .gameDate(gameDate)
                 .matchId(application.getChatId() == null ? null : Long.parseLong(application.getChatId()))
                 .matchedMemberId(application.getMatchedMemberId())
                 .matchedAt(application.getMatchedAt())
@@ -155,6 +161,7 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 String.valueOf(entity.getId()),
                 entity.getMemberId(),
                 String.valueOf(entity.getGameId()),
+                entity.getGameDate(),
                 entity.getStatus(),
                 entity.getAppliedAt(),
                 entity.getMatchedMemberId(),
@@ -166,5 +173,23 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 entity.getMatchScore(),
                 entity.getRejectedMemberIds(),
                 entity.getVersion());
+    }
+
+    private LocalDate resolveGameDate(Application application, Long id) {
+        if (application.getGameDate() != null) {
+            return application.getGameDate();
+        }
+        if (id != null) {
+            return repository.findById(id)
+                    .map(ApplicationEntity::getGameDate)
+                    .orElseGet(() -> findGameDate(application.getGameId()));
+        }
+        return findGameDate(application.getGameId());
+    }
+
+    private LocalDate findGameDate(String gameId) {
+        return gameRepository.findById(Long.parseLong(gameId))
+                .orElseThrow(() -> new IllegalStateException("Game not found: " + gameId))
+                .getDate();
     }
 }

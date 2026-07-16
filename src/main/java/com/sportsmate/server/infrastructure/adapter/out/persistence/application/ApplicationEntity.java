@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -38,6 +39,9 @@ public class ApplicationEntity extends BaseTimeEntity {
 
     @Column(name = "game_id", nullable = false)
     private Long gameId;
+
+    @Column(name = "game_date", nullable = false)
+    private LocalDate gameDate;
 
     @Column(name = "match_id")
     private Long matchId;

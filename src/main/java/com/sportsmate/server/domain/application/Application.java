@@ -1,5 +1,6 @@
 package com.sportsmate.server.domain.application;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -8,6 +9,7 @@ public class Application {
     private String id;
     private Long memberId;
     private String gameId;
+    private LocalDate gameDate;
     private String status;
     private LocalDateTime appliedAt;
     private Long matchedMemberId;
@@ -21,10 +23,15 @@ public class Application {
     private Long version;
 
     public static Application create(String id, Long memberId, String gameId) {
+        return create(id, memberId, gameId, null);
+    }
+
+    public static Application create(String id, Long memberId, String gameId, LocalDate gameDate) {
         Application application = new Application();
         application.id = id;
         application.memberId = memberId;
         application.gameId = gameId;
+        application.gameDate = gameDate;
         application.status = "waiting";
         application.appliedAt = LocalDateTime.now();
         return application;
@@ -42,10 +49,19 @@ public class Application {
             LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
             LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
             Set<Long> rejectedMemberIds, Long version) {
+        return reconstitute(id, memberId, gameId, null, status, appliedAt, matchedMemberId, chatId, matchedAt,
+                expiresAt, response, cancelledAt, matchScore, rejectedMemberIds, version);
+    }
+
+    public static Application reconstitute(String id, Long memberId, String gameId, LocalDate gameDate,
+            String status, LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
+            LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
+            Set<Long> rejectedMemberIds, Long version) {
         Application application = new Application();
         application.id = id;
         application.memberId = memberId;
         application.gameId = gameId;
+        application.gameDate = gameDate;
         application.status = status;
         application.appliedAt = appliedAt;
         application.matchedMemberId = matchedMemberId;
@@ -124,6 +140,7 @@ public class Application {
     public String getId() { return id; }
     public Long getMemberId() { return memberId; }
     public String getGameId() { return gameId; }
+    public LocalDate getGameDate() { return gameDate; }
     public String getStatus() { return status; }
     public LocalDateTime getAppliedAt() { return appliedAt; }
     public Long getMatchedMemberId() { return matchedMemberId; }
