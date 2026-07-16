@@ -83,7 +83,9 @@ springdoc:
   default-consumes-media-type: application/json;charset=UTF-8
   default-produces-media-type: application/json;charset=UTF-8
   swagger-ui:
-    path: /api/docs
+    # 실제 정적 리소스는 항상 "{path 상위 경로}/swagger-ui/index.html"에 마운트된다(springdoc 하드코딩).
+    # 최종 사용자 노출 URL(/api/docs)은 SwaggerDocsController가 별도로 서빙한다.
+    path: /api/swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
     display-request-duration: true

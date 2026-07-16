@@ -32,10 +32,12 @@ class SecurityConfigSwaggerDocsTest {
         @DisplayName("Swagger 관련 경로는 인증 없이 접근할 수 있다")
         void swaggerEndpoints_withoutAuthentication_permitAll() throws Exception {
             mockMvc.perform(get("/api/docs"))
-                    .andExpect(status().is3xxRedirection());
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .contains("<base href=\"/api/swagger-ui/\">"));
 
             mockMvc.perform(get("/api/swagger-ui/index.html"))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isNotFound());
 
             mockMvc.perform(get("/swagger-ui/index.html"))
                     .andExpect(status().isInternalServerError());
@@ -102,10 +104,10 @@ class SecurityConfigSwaggerDocsTest {
         @DisplayName("Swagger 관련 경로는 올바른 Basic Auth 자격증명으로 접근할 수 있다")
         void swaggerEndpoints_withValidBasicAuth_success() throws Exception {
             mockMvc.perform(get("/api/docs").with(httpBasic("docs-user", "docs-password")))
-                    .andExpect(status().is3xxRedirection());
+                    .andExpect(status().isOk());
 
             mockMvc.perform(get("/api/swagger-ui/index.html").with(httpBasic("docs-user", "docs-password")))
-                    .andExpect(status().isOk());
+                    .andExpect(status().isNotFound());
 
             mockMvc.perform(get("/swagger-ui/index.html").with(httpBasic("docs-user", "docs-password")))
                     .andExpect(status().isInternalServerError());
