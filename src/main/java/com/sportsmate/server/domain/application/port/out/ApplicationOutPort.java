@@ -8,6 +8,9 @@ import java.util.Optional;
 
 public interface ApplicationOutPort {
     Application save(Application application);
+    default Application saveAndFlush(Application application) {
+        return save(application);
+    }
     String createMatch(Application application, Application opponent);
     String createSoloMatch(Application application);
     void addParticipant(String chatId, Application application);

@@ -18,6 +18,7 @@ public class Application {
     private LocalDateTime cancelledAt;
     private Integer matchScore;
     private Set<Long> rejectedMemberIds = new LinkedHashSet<>();
+    private Long version;
 
     public static Application create(String id, Long memberId, String gameId) {
         Application application = new Application();
@@ -33,6 +34,14 @@ public class Application {
             LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
             LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
             Set<Long> rejectedMemberIds) {
+        return reconstitute(id, memberId, gameId, status, appliedAt, matchedMemberId, chatId, matchedAt,
+                expiresAt, response, cancelledAt, matchScore, rejectedMemberIds, null);
+    }
+
+    public static Application reconstitute(String id, Long memberId, String gameId, String status,
+            LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
+            LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
+            Set<Long> rejectedMemberIds, Long version) {
         Application application = new Application();
         application.id = id;
         application.memberId = memberId;
@@ -49,6 +58,7 @@ public class Application {
         application.rejectedMemberIds = rejectedMemberIds == null
                 ? new LinkedHashSet<>()
                 : new LinkedHashSet<>(rejectedMemberIds);
+        application.version = version;
         return application;
     }
 
@@ -124,4 +134,5 @@ public class Application {
     public LocalDateTime getCancelledAt() { return cancelledAt; }
     public Integer getMatchScore() { return matchScore; }
     public Set<Long> getRejectedMemberIds() { return Set.copyOf(rejectedMemberIds); }
+    public Long getVersion() { return version; }
 }
