@@ -46,7 +46,8 @@ public class GreedyMatchingEngine implements MatchingEngine {
                     pair.b().applicationId(),
                     pair.a().memberId(),
                     pair.b().memberId(),
-                    pair.score()));
+                    pair.breakdown().score(),
+                    pair.breakdown().reasons()));
         }
         return result;
     }
@@ -60,9 +61,9 @@ public class GreedyMatchingEngine implements MatchingEngine {
                 if (!isEligible(a, b)) {
                     continue;
                 }
-                int score = score(a, b, weights);
-                if (score >= weights.minimumScore()) {
-                    result.add(new ScoredPair(a, b, score));
+                ScoreBreakdown breakdown = score(a, b, weights);
+                if (breakdown.score() >= weights.minimumScore()) {
+                    result.add(new ScoredPair(a, b, breakdown));
                 }
             }
         }
@@ -73,21 +74,26 @@ public class GreedyMatchingEngine implements MatchingEngine {
         return filters.stream().allMatch(filter -> filter.isEligible(a, b));
     }
 
-    private int score(MatchCandidate a, MatchCandidate b, MatchWeights weights) {
+    private ScoreBreakdown score(MatchCandidate a, MatchCandidate b, MatchWeights weights) {
         double weightedScore = 0.0;
         double totalWeight = 0.0;
+        java.util.ArrayList<MatchReason> reasons = new java.util.ArrayList<>();
         for (MatchScorer scorer : scorers) {
             double weight = weights.weightFor(scorer.key());
             if (weight <= 0.0) {
                 continue;
             }
-            weightedScore += clamp(scorer.score(a, b)) * weight;
+            double contribution = clamp(scorer.score(a, b)) * weight;
+            weightedScore += contribution;
             totalWeight += weight;
+            if (contribution > 0.0) {
+                reasons.add(new MatchReason(scorer.key(), contribution));
+            }
         }
         if (totalWeight == 0.0) {
-            return 0;
+            return new ScoreBreakdown(0, List.of());
         }
-        return (int) Math.round((weightedScore / totalWeight) * 100.0);
+        return new ScoreBreakdown((int) Math.round((weightedScore / totalWeight) * 100.0), reasons);
     }
 
     private void validateCoreWeights(MatchWeights weights) {
@@ -102,6 +108,15 @@ public class GreedyMatchingEngine implements MatchingEngine {
         return Math.max(0.0, Math.min(1.0, value));
     }
 
-    private record ScoredPair(MatchCandidate a, MatchCandidate b, int score) {
+    private record ScoreBreakdown(int score, List<MatchReason> reasons) {
+        private ScoreBreakdown {
+            reasons = reasons == null ? List.of() : List.copyOf(reasons);
+        }
+    }
+
+    private record ScoredPair(MatchCandidate a, MatchCandidate b, ScoreBreakdown breakdown) {
+        private int score() {
+            return breakdown.score();
+        }
     }
 }

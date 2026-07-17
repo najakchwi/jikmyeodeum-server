@@ -20,17 +20,17 @@ ON CONFLICT (id) DO NOTHING;
 -- ── 팀 (KBO 10개 구단) ────────────────────────────────────────────────────────
 -- short_name 은 클라이언트 TEAM_LOGOS 키와 반드시 일치
 
-INSERT INTO teams (id, sport_id, name, short_name, kbo_code, emblem_image_key, primary_color_hex) VALUES
-    (1,  1, 'LG 트윈스',    'LG',   'LG',   'images/team-logo/lg.png',      '#C30452'),
-    (2,  1, '두산 베어스',  '두산', '두산', 'images/team-logo/doosan.png',  '#131230'),
-    (3,  1, '키움 히어로즈','키움', '키움', 'images/team-logo/kiwoom.png',  '#570514'),
-    (4,  1, 'KIA 타이거즈', 'KIA',  'KIA',  'images/team-logo/kia.png',     '#EA0029'),
-    (5,  1, '삼성 라이온즈','삼성', '삼성', 'images/team-logo/samsung.png', '#074CA1'),
-    (6,  1, 'SSG 랜더스',   'SSG',  'SSG',  'images/team-logo/ssg.png',     '#CE0E2D'),
-    (7,  1, '롯데 자이언츠','롯데', '롯데', 'images/team-logo/lotte.png',   '#041E42'),
-    (8,  1, '한화 이글스',  '한화', '한화', 'images/team-logo/hanhwa.png',  '#FC4E00'),
-    (9,  1, 'NC 다이노스',  'NC',   'NC',   'images/team-logo/nc.png',      '#315288'),
-    (10, 1, 'KT 위즈',      'KT',   'KT',   'images/team-logo/kt.png',      '#000000')
+INSERT INTO teams (id, sport_id, league_id, name, short_name, kbo_code, emblem_image_key, primary_color_hex) VALUES
+    (1,  1, 1, 'LG 트윈스',    'LG',   'LG',   'images/team-logo/lg.png',      '#C30452'),
+    (2,  1, 1, '두산 베어스',  '두산', '두산', 'images/team-logo/doosan.png',  '#131230'),
+    (3,  1, 1, '키움 히어로즈','키움', '키움', 'images/team-logo/kiwoom.png',  '#570514'),
+    (4,  1, 1, 'KIA 타이거즈', 'KIA',  'KIA',  'images/team-logo/kia.png',     '#EA0029'),
+    (5,  1, 1, '삼성 라이온즈','삼성', '삼성', 'images/team-logo/samsung.png', '#074CA1'),
+    (6,  1, 1, 'SSG 랜더스',   'SSG',  'SSG',  'images/team-logo/ssg.png',     '#CE0E2D'),
+    (7,  1, 1, '롯데 자이언츠','롯데', '롯데', 'images/team-logo/lotte.png',   '#041E42'),
+    (8,  1, 1, '한화 이글스',  '한화', '한화', 'images/team-logo/hanhwa.png',  '#FC4E00'),
+    (9,  1, 1, 'NC 다이노스',  'NC',   'NC',   'images/team-logo/nc.png',      '#315288'),
+    (10, 1, 1, 'KT 위즈',      'KT',   'KT',   'images/team-logo/kt.png',      '#000000')
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('leagues', 'id'), COALESCE((SELECT MAX(id) FROM leagues), 1), (SELECT COUNT(*) > 0 FROM leagues));

@@ -73,6 +73,9 @@ public class ApplicationEntity extends BaseTimeEntity {
     @Column(name = "match_score")
     private Integer matchScore;
 
+    @Column(name = "match_reasons")
+    private String matchReasons;
+
     @Version
     @Column(name = "version", nullable = false)
     private Long version;

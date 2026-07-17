@@ -12,6 +12,7 @@ public interface ContentUseCase {
             List<Avatar> avatars,
             List<Asset> assets,
             List<Team> teams,
+            List<League> leagues,
             ProfileOptions profileOptions
     ) {}
 
@@ -25,14 +26,24 @@ public interface ContentUseCase {
 
     record Team(Long id, String name, String shortName, String emblemUrl, String primaryColorHex) {}
 
+    record League(Long id, String sport, String code, String name, List<Team> teams) {}
+
     record ProfileOptions(
             ProfileOptionGroup watchStyles,
+            ProfileOptionGroup seatZones,
+            ProfileOptionGroup fanLevels,
             ProfileOptionGroup personalities,
             ProfileOptionGroup talkStyles,
             ProfileOptionGroup smokingStatuses,
+            ProfileOptionGroup drinkingStatuses,
+            ProfileOptionGroup meetPurposes,
             List<EnumOption> genderPrefs,
             List<EnumOption> agePrefs,
-            List<EnumOption> smokingPrefs
+            List<EnumOption> smokingPrefs,
+            List<EnumOption> drinkingPrefs,
+            List<EnumOption> fanLevelPrefs,
+            List<EnumOption> talkPrefs,
+            List<EnumOption> teamPrefs
     ) {}
 
     record ProfileOptionGroup(List<EnumOption> options, boolean multiSelectable, Integer maxCount) {}

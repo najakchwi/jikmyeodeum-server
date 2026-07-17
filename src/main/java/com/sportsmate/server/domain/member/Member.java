@@ -2,12 +2,17 @@ package com.sportsmate.server.domain.member;
 
 import com.sportsmate.server.common.enums.Role;
 import com.sportsmate.server.domain.member.enums.AgePref;
+import com.sportsmate.server.domain.member.enums.DrinkingPref;
+import com.sportsmate.server.domain.member.enums.DrinkingStatus;
+import com.sportsmate.server.domain.member.enums.FanLevelPref;
 import com.sportsmate.server.domain.member.enums.Gender;
 import com.sportsmate.server.domain.member.enums.GenderPref;
 import com.sportsmate.server.domain.member.enums.LoginType;
+import com.sportsmate.server.domain.member.enums.MeetPurpose;
 import com.sportsmate.server.domain.member.enums.Personality;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
+import com.sportsmate.server.domain.member.enums.TalkPref;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
 import java.time.LocalDate;
@@ -33,9 +38,14 @@ public class Member {
     private Personality personality;
     private TalkStyle talkStyle;
     private SmokingStatus smokingStatus;
+    private DrinkingStatus drinkingStatus;
+    private MeetPurpose meetPurpose;
     private GenderPref genderPref;
     private AgePref agePref;
     private SmokingPref smokingPref;
+    private DrinkingPref drinkingPref;
+    private TalkPref talkPref;
+    private FanLevelPref fanLevelPref;
     private int distanceKm;
     private boolean locationVerified;
     private String locationAddress;
@@ -48,6 +58,7 @@ public class Member {
     private int priorityPassCount;
     private boolean marketingAgreed;
     private Role role;
+    private List<MemberLeagueProfile> leagueProfiles;
 
     public static Member create(
             String phone,
@@ -90,6 +101,9 @@ public class Member {
         member.genderPref = genderPref;
         member.agePref = agePref;
         member.smokingPref = smokingPref;
+        member.drinkingPref = DrinkingPref.ANY;
+        member.talkPref = TalkPref.ANY;
+        member.fanLevelPref = FanLevelPref.ANY;
         member.distanceKm = distanceKm;
         member.locationVerified = latitude != null && longitude != null;
         member.locationAddress = locationAddress == null ? "" : locationAddress;
@@ -100,6 +114,7 @@ public class Member {
         member.couponCount = 2;
         member.marketingAgreed = marketingAgreed;
         member.role = Role.USER;
+        member.leagueProfiles = List.of();
         return member;
     }
 
@@ -111,6 +126,25 @@ public class Member {
             SmokingPref smokingPref, int distanceKm, boolean locationVerified, String locationAddress,
             Double latitude, Double longitude, int matchCount, double rating, int trustScore,
             int couponCount, int priorityPassCount, boolean marketingAgreed, Role role) {
+        return reconstitute(
+                id, phone, phoneVerifiedAt, password, loginType, providerId, nickname, bio,
+                birthdate, gender, avatarUrl, avatarColor, team, watchStyles, personality,
+                talkStyle, smokingStatus, null, null, genderPref, agePref, smokingPref,
+                null, null, null, distanceKm, locationVerified, locationAddress, latitude,
+                longitude, matchCount, rating, trustScore, couponCount, priorityPassCount,
+                marketingAgreed, role, List.of());
+    }
+
+    public static Member reconstitute(
+            Long id, String phone, LocalDateTime phoneVerifiedAt, String password, LoginType loginType, String providerId,
+            String nickname, String bio, LocalDate birthdate, Gender gender, String avatarUrl,
+            String avatarColor, String team, List<WatchStyle> watchStyles, Personality personality,
+            TalkStyle talkStyle, SmokingStatus smokingStatus, DrinkingStatus drinkingStatus,
+            MeetPurpose meetPurpose, GenderPref genderPref, AgePref agePref, SmokingPref smokingPref,
+            DrinkingPref drinkingPref, TalkPref talkPref, FanLevelPref fanLevelPref, int distanceKm,
+            boolean locationVerified, String locationAddress, Double latitude, Double longitude,
+            int matchCount, double rating, int trustScore, int couponCount, int priorityPassCount,
+            boolean marketingAgreed, Role role, List<MemberLeagueProfile> leagueProfiles) {
         Member member = new Member();
         member.id = id;
         member.phone = phone;
@@ -129,9 +163,14 @@ public class Member {
         member.personality = personality;
         member.talkStyle = talkStyle;
         member.smokingStatus = smokingStatus;
+        member.drinkingStatus = drinkingStatus;
+        member.meetPurpose = meetPurpose;
         member.genderPref = genderPref;
         member.agePref = agePref;
         member.smokingPref = smokingPref;
+        member.drinkingPref = drinkingPref;
+        member.talkPref = talkPref;
+        member.fanLevelPref = fanLevelPref;
         member.distanceKm = distanceKm;
         member.locationVerified = locationVerified;
         member.locationAddress = locationAddress;
@@ -144,6 +183,7 @@ public class Member {
         member.priorityPassCount = priorityPassCount;
         member.marketingAgreed = marketingAgreed;
         member.role = role;
+        member.leagueProfiles = leagueProfiles == null ? List.of() : List.copyOf(leagueProfiles);
         return member;
     }
 
@@ -181,11 +221,35 @@ public class Member {
         if (smokingStatus != null) this.smokingStatus = smokingStatus;
     }
 
-    public void updatePreference(GenderPref genderPref, AgePref agePref, SmokingPref smokingPref, Integer distanceKm) {
+    public void updateStyle(Personality personality, TalkStyle talkStyle, SmokingStatus smokingStatus,
+            DrinkingStatus drinkingStatus, MeetPurpose meetPurpose) {
+        if (personality != null) this.personality = personality;
+        if (talkStyle != null) this.talkStyle = talkStyle;
+        if (smokingStatus != null) this.smokingStatus = smokingStatus;
+        if (drinkingStatus != null) this.drinkingStatus = drinkingStatus;
+        if (meetPurpose != null) this.meetPurpose = meetPurpose;
+    }
+
+    public void updatePreference(GenderPref genderPref, AgePref agePref, SmokingPref smokingPref,
+            DrinkingPref drinkingPref, TalkPref talkPref, FanLevelPref fanLevelPref, Integer distanceKm) {
         if (genderPref != null) this.genderPref = genderPref;
         if (agePref != null) this.agePref = agePref;
         if (smokingPref != null) this.smokingPref = smokingPref;
+        if (drinkingPref != null) this.drinkingPref = drinkingPref;
+        if (talkPref != null) this.talkPref = talkPref;
+        if (fanLevelPref != null) this.fanLevelPref = fanLevelPref;
         if (distanceKm != null) this.distanceKm = distanceKm;
+    }
+
+    public void updatePreference(GenderPref genderPref, AgePref agePref, SmokingPref smokingPref, Integer distanceKm) {
+        updatePreference(genderPref, agePref, smokingPref, null, null, null, distanceKm);
+    }
+
+    public void upsertLeagueProfile(MemberLeagueProfile profile) {
+        List<MemberLeagueProfile> updated = new java.util.ArrayList<>(leagueProfiles == null ? List.of() : leagueProfiles);
+        updated.removeIf(existing -> existing.leagueId().equals(profile.leagueId()));
+        updated.add(profile);
+        this.leagueProfiles = List.copyOf(updated);
     }
 
     public void verifyLocation(String address, double latitude, double longitude) {
@@ -243,9 +307,14 @@ public class Member {
     public Personality getPersonality() { return personality; }
     public TalkStyle getTalkStyle() { return talkStyle; }
     public SmokingStatus getSmokingStatus() { return smokingStatus; }
+    public DrinkingStatus getDrinkingStatus() { return drinkingStatus; }
+    public MeetPurpose getMeetPurpose() { return meetPurpose; }
     public GenderPref getGenderPref() { return genderPref; }
     public AgePref getAgePref() { return agePref; }
     public SmokingPref getSmokingPref() { return smokingPref; }
+    public DrinkingPref getDrinkingPref() { return drinkingPref; }
+    public TalkPref getTalkPref() { return talkPref; }
+    public FanLevelPref getFanLevelPref() { return fanLevelPref; }
     public int getDistanceKm() { return distanceKm; }
     public boolean isLocationVerified() { return locationVerified; }
     public String getLocationAddress() { return locationAddress; }
@@ -258,4 +327,5 @@ public class Member {
     public int getPriorityPassCount() { return priorityPassCount; }
     public boolean isMarketingAgreed() { return marketingAgreed; }
     public Role getRole() { return role; }
+    public List<MemberLeagueProfile> getLeagueProfiles() { return leagueProfiles; }
 }

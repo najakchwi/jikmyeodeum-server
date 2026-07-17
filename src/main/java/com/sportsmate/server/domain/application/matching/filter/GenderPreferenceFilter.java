@@ -2,9 +2,6 @@ package com.sportsmate.server.domain.application.matching.filter;
 
 import com.sportsmate.server.domain.application.matching.MatchCandidate;
 import com.sportsmate.server.domain.member.enums.GenderPref;
-import org.springframework.stereotype.Component;
-
-@Component
 public class GenderPreferenceFilter implements MatchFilter {
 
     @Override

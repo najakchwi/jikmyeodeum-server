@@ -4,9 +4,6 @@ import com.sportsmate.server.domain.application.matching.MatchCandidate;
 import com.sportsmate.server.domain.member.enums.AgePref;
 import java.time.LocalDate;
 import java.time.Period;
-import org.springframework.stereotype.Component;
-
-@Component
 public class AgePreferenceFilter implements MatchFilter {
 
     private static final int SIMILAR_AGE_RANGE = 3;

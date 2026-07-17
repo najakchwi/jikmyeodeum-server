@@ -1,9 +1,6 @@
 package com.sportsmate.server.domain.application.matching.filter;
 
 import com.sportsmate.server.domain.application.matching.MatchCandidate;
-import org.springframework.stereotype.Component;
-
-@Component
 public class DistanceFilter implements MatchFilter {
 
     @Override

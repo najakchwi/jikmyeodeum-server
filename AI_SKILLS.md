@@ -8,7 +8,8 @@ AI tools do not all share a universal `SKILL.md` auto-loading standard. Therefor
 
 1. Identify the user's task.
 2. Pick every skill whose trigger matches the task.
-3. Read the referenced `SKILL.md` before planning or editing.
+3. Read the referenced `SKILL.md` before planning or editing. Some skills are lightweight routers; follow their
+   "load only what matches" section instead of opening every reference file.
 4. Follow the skill unless it conflicts with explicit user instructions or verified project code.
 5. If a skill conflicts with the current project implementation, call out the conflict before changing code.
 
@@ -28,8 +29,12 @@ Use when:
 - Checking Clean Architecture, Hexagonal Architecture, DDD, dependency direction, aggregate boundaries, value objects, or domain events.
 - Debugging code where persistence models, transport models, or adapter logic leaks into domain entities/value objects or across port boundaries.
 
-Related reference:
+For a tiny adapter-only edit that does not change ports, use cases, domain behavior, or package boundaries, the lightweight
+`SKILL.md` is enough. Open references only when its routing section says they match.
 
+Related references:
+
+- `skills/architecture-patterns/references/full-patterns.md`
 - `skills/architecture-patterns/references/advanced-patterns.md`
 
 ### `junit`
@@ -52,6 +57,7 @@ skills/
 ├── architecture-patterns/
 │   ├── SKILL.md
 │   └── references/
+│       ├── full-patterns.md
 │       └── advanced-patterns.md
 └── junit/
     └── SKILL.md

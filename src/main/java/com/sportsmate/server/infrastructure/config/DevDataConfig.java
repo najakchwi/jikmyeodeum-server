@@ -137,6 +137,7 @@ public class DevDataConfig {
     private TeamEntity team(String name, String shortName, String emblemImageKey, String primaryColorHex) {
         return TeamEntity.builder()
                 .sportId(1L)
+                .leagueId(1L)
                 .name(name)
                 .shortName(shortName)
                 .emblemImageKey(emblemImageKey)

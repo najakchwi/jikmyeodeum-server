@@ -2,6 +2,8 @@ package com.sportsmate.server.domain.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sportsmate.server.domain.application.matching.MatchReason;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +37,7 @@ class ApplicationTest {
     @DisplayName("매칭 후보를 대기 상태로 되돌리면 매칭 응답 정보가 초기화된다")
     void resetToWaiting_matchedApplication_clearsMatchFields() {
         Application application = Application.create("ma1", 1L, "g1");
-        application.assign(2L);
+        application.assign(2L, 90, List.of(new MatchReason("team", 13.0)));
         application.markAccepted();
 
         application.resetToWaiting();
@@ -45,6 +47,21 @@ class ApplicationTest {
         assertThat(application.getMatchedAt()).isNull();
         assertThat(application.getExpiresAt()).isNull();
         assertThat(application.getResponse()).isNull();
+        assertThat(application.getMatchScore()).isNull();
+        assertThat(application.getMatchReasons()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("매칭 거절 시 매칭 점수와 이유를 함께 초기화한다")
+    void reject_matchedApplication_clearsMatchScoreAndReasons() {
+        Application application = Application.create("ma1", 1L, "g1");
+        application.assign(2L, 90, List.of(new MatchReason("team", 13.0)));
+
+        application.reject();
+
+        assertThat(application.getStatus()).isEqualTo("waiting");
+        assertThat(application.getMatchScore()).isNull();
+        assertThat(application.getMatchReasons()).isEmpty();
     }
 
     @Test

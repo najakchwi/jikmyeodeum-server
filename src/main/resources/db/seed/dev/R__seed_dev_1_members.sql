@@ -7,5 +7,20 @@ INSERT INTO members (id, auth_id, phone, phone_verified_at, nickname, birth_year
     (6, NULL, '01066667777', CURRENT_TIMESTAMP, '트윈스사랑',  1998, 'MALE',   NULL, 'LG 직관 동행 항상 환영입니다.',                 'ExponentPushToken[wwwwwwwwwwwwwwwwwwwwww]', FALSE, 'USER',  CURRENT_TIMESTAMP, NULL),
     (7, NULL, '01077778888', CURRENT_TIMESTAMP, '오늘직관러',  1996, 'FEMALE', NULL, '오늘 경기 같이 볼 동행을 찾고 있어요.',          'ExponentPushToken[vvvvvvvvvvvvvvvvvvvvvv]', TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
     (8, NULL, '01088889999', CURRENT_TIMESTAMP, '매칭완료팬',  1994, 'MALE',   NULL, '매칭되면 바로 일정 조율하는 편입니다.',           'ExponentPushToken[uuuuuuuuuuuuuuuuuuuuuu]', TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
-    (9, NULL, '01099990000', CURRENT_TIMESTAMP, '운영자',      NULL, NULL,     NULL, '매칭 기능 테스트용 관리자 계정',                 NULL,                                         TRUE,  'ADMIN', CURRENT_TIMESTAMP, NULL)
+    (9, NULL, '01099990000', CURRENT_TIMESTAMP, '운영자',      NULL, NULL,     NULL, '매칭 기능 테스트용 관리자 계정',                 NULL,                                         TRUE,  'ADMIN', CURRENT_TIMESTAMP, NULL),
+    (10, NULL, '01010101010', CURRENT_TIMESTAMP, '잠실응원석',  1996, 'FEMALE', NULL, '응원석에서 같이 크게 응원하는 걸 좋아해요.',    NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (11, NULL, '01010101011', CURRENT_TIMESTAMP, '라팍원정러',  1992, 'MALE',   NULL, '원정 직관도 종종 다니는 편입니다.',              NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (12, NULL, '01010101012', CURRENT_TIMESTAMP, '사직갈매기',  1998, 'FEMALE', NULL, '먹거리 챙기면서 편하게 보는 걸 좋아해요.',      NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (13, NULL, '01010101013', CURRENT_TIMESTAMP, '고척분석가',  1991, 'MALE',   NULL, '기록 이야기하면서 보는 직관을 좋아합니다.',      NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (14, NULL, '01010101014', CURRENT_TIMESTAMP, '문학랜더스',  1999, 'FEMALE', NULL, '처음 만나는 분과도 대화 편하게 해요.',          NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (15, NULL, '01010101015', CURRENT_TIMESTAMP, '대전독수리',  1995, 'MALE',   NULL, '한화 경기면 어디든 즐겁게 갑니다.',             NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (16, NULL, '01010101016', CURRENT_TIMESTAMP, '수원위즈팬',  1997, 'FEMALE', NULL, '일정 조율 빠르고 약속 잘 지켜요.',              NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (17, NULL, '01010101017', CURRENT_TIMESTAMP, '창원다이노',  1993, 'MALE',   NULL, '차분하게 경기 흐름 보는 걸 좋아합니다.',        NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (18, NULL, '01010101018', CURRENT_TIMESTAMP, '광주호랑이',  2000, 'FEMALE', NULL, '응원가 배우는 중이라 같이 알려주실 분 좋아요.', NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (19, NULL, '01010101019', CURRENT_TIMESTAMP, '잠실테이블석', 1994, 'MALE',  NULL, '야구장 먹거리와 경기 둘 다 챙기는 편입니다.',   NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (20, NULL, '01010101020', CURRENT_TIMESTAMP, '직관메이트A', 1996, 'FEMALE', NULL, '낯가림 적고 경기 전후 대화도 좋아해요.',        NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (21, NULL, '01010101021', CURRENT_TIMESTAMP, '직관메이트B', 1990, 'MALE',   NULL, '응원보다 경기 집중 관람을 선호합니다.',         NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (22, NULL, '01010101022', CURRENT_TIMESTAMP, '직관메이트C', 1998, 'FEMALE', NULL, '동성 동행도 편하고 일정 맞추기 쉬워요.',        NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (23, NULL, '01010101023', CURRENT_TIMESTAMP, '직관메이트D', 1995, 'MALE',   NULL, '초보 팬도 편하게 볼 수 있게 맞춰드립니다.',      NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL),
+    (24, NULL, '01010101024', CURRENT_TIMESTAMP, '직관메이트E', 1997, 'FEMALE', NULL, '응원과 대화 모두 적당한 밸런스를 좋아해요.',    NULL,                                         TRUE,  'USER',  CURRENT_TIMESTAMP, NULL)
 ON CONFLICT (id) DO NOTHING;

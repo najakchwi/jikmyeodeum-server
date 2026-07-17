@@ -3,9 +3,6 @@ package com.sportsmate.server.domain.application.matching.filter;
 import com.sportsmate.server.domain.application.matching.MatchCandidate;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
-import org.springframework.stereotype.Component;
-
-@Component
 public class SmokingPreferenceFilter implements MatchFilter {
 
     @Override

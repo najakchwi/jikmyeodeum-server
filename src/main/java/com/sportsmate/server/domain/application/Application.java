@@ -1,8 +1,10 @@
 package com.sportsmate.server.domain.application;
 
+import com.sportsmate.server.domain.application.matching.MatchReason;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Application {
@@ -19,6 +21,7 @@ public class Application {
     private String response;
     private LocalDateTime cancelledAt;
     private Integer matchScore;
+    private List<MatchReason> matchReasons = List.of();
     private Set<Long> rejectedMemberIds = new LinkedHashSet<>();
     private Long version;
 
@@ -50,13 +53,21 @@ public class Application {
             LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
             Set<Long> rejectedMemberIds, Long version) {
         return reconstitute(id, memberId, gameId, null, status, appliedAt, matchedMemberId, chatId, matchedAt,
-                expiresAt, response, cancelledAt, matchScore, rejectedMemberIds, version);
+                expiresAt, response, cancelledAt, matchScore, List.of(), rejectedMemberIds, version);
     }
 
     public static Application reconstitute(String id, Long memberId, String gameId, LocalDate gameDate,
             String status, LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
             LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
             Set<Long> rejectedMemberIds, Long version) {
+        return reconstitute(id, memberId, gameId, gameDate, status, appliedAt, matchedMemberId, chatId, matchedAt,
+                expiresAt, response, cancelledAt, matchScore, List.of(), rejectedMemberIds, version);
+    }
+
+    public static Application reconstitute(String id, Long memberId, String gameId, LocalDate gameDate,
+            String status, LocalDateTime appliedAt, Long matchedMemberId, String chatId, LocalDateTime matchedAt,
+            LocalDateTime expiresAt, String response, LocalDateTime cancelledAt, Integer matchScore,
+            List<MatchReason> matchReasons, Set<Long> rejectedMemberIds, Long version) {
         Application application = new Application();
         application.id = id;
         application.memberId = memberId;
@@ -71,6 +82,7 @@ public class Application {
         application.response = response;
         application.cancelledAt = cancelledAt;
         application.matchScore = matchScore;
+        application.matchReasons = matchReasons == null ? List.of() : List.copyOf(matchReasons);
         application.rejectedMemberIds = rejectedMemberIds == null
                 ? new LinkedHashSet<>()
                 : new LinkedHashSet<>(rejectedMemberIds);
@@ -92,6 +104,7 @@ public class Application {
         expiresAt = null;
         response = null;
         matchScore = null;
+        matchReasons = List.of();
         chatId = null;
     }
 
@@ -100,11 +113,16 @@ public class Application {
     }
 
     public void assign(Long opponentId, Integer score) {
+        assign(opponentId, score, List.of());
+    }
+
+    public void assign(Long opponentId, Integer score, List<MatchReason> reasons) {
         matchedMemberId = opponentId;
         matchedAt = LocalDateTime.now();
         expiresAt = matchedAt.plusHours(23);
         status = "matched";
         matchScore = score;
+        matchReasons = reasons == null ? List.of() : List.copyOf(reasons);
     }
 
     public void markAccepted() {
@@ -126,6 +144,7 @@ public class Application {
         matchedAt = null;
         expiresAt = null;
         matchScore = null;
+        matchReasons = List.of();
     }
 
     public void completeGame() {
@@ -150,6 +169,7 @@ public class Application {
     public String getResponse() { return response; }
     public LocalDateTime getCancelledAt() { return cancelledAt; }
     public Integer getMatchScore() { return matchScore; }
+    public List<MatchReason> getMatchReasons() { return List.copyOf(matchReasons); }
     public Set<Long> getRejectedMemberIds() { return Set.copyOf(rejectedMemberIds); }
     public Long getVersion() { return version; }
 }
