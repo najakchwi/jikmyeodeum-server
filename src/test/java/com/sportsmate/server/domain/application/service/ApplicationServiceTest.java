@@ -8,6 +8,7 @@ import com.sportsmate.server.common.enums.Role;
 import com.sportsmate.server.domain.application.Application;
 import com.sportsmate.server.domain.application.exception.ApplicationErrorCode;
 import com.sportsmate.server.domain.application.matching.GreedyMatchingEngine;
+import com.sportsmate.server.domain.application.matching.MatchReason;
 import com.sportsmate.server.domain.application.matching.MatchCandidateFactory;
 import com.sportsmate.server.domain.application.matching.MatchWeights;
 import com.sportsmate.server.domain.application.matching.filter.AgePreferenceFilter;
@@ -28,6 +29,7 @@ import com.sportsmate.server.domain.game.port.out.GameOutPort;
 import com.sportsmate.server.domain.game.port.out.TeamOutPort;
 import com.sportsmate.server.domain.game.service.GameService;
 import com.sportsmate.server.domain.member.Member;
+import com.sportsmate.server.domain.member.MemberLeagueProfile;
 import com.sportsmate.server.domain.member.enums.AgePref;
 import com.sportsmate.server.domain.member.enums.Gender;
 import com.sportsmate.server.domain.member.enums.GenderPref;
@@ -82,7 +84,8 @@ class ApplicationServiceTest {
             "personality", 10.0,
             "distance", 10.0), 60);
     private final ApplicationMatchingBatchProcessor matchingBatchProcessor = new ApplicationMatchingBatchProcessor(
-            applicationOutPort, memberUseCase, notificationUseCase, matchingEngine, matchCandidateFactory, matchWeights);
+            applicationOutPort, gameOutPort, memberUseCase, notificationUseCase, matchingEngine,
+            matchCandidateFactory, matchWeights);
     private final ApplicationService applicationService = new ApplicationService(
             applicationOutPort, gameOutPort, gameService, memberUseCase, memberOutPort,
             notificationUseCase, chatUseCase, reviewOutPort, matchingBatchProcessor);
@@ -290,6 +293,20 @@ class ApplicationServiceTest {
         var result = applicationService.apply(1L, "10");
 
         assertThat(result.status()).isEqualTo("waiting");
+    }
+
+    @Test
+    @DisplayName("경기 리그 프로필이 없으면 신청할 수 없다")
+    void apply_withoutLeagueProfile_throwsLeagueProfileRequired() {
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null, 2L));
+        memberOutPort.missingLeagueProfiles.add("1:2");
+
+        assertThatThrownBy(() -> applicationService.apply(1L, "10"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ApplicationErrorCode.LEAGUE_PROFILE_REQUIRED);
     }
 
     @Test
@@ -627,6 +644,24 @@ class ApplicationServiceTest {
     }
 
     @Test
+    @DisplayName("단일 경기 매칭은 실제 경기 리그 ID를 사용하고 없는 경기는 실패한다")
+    void matchWaitingPairs_usesGameLeagueIdAndMissingGameThrows() {
+        applicationOutPort.save(Application.create("1", 1L, "10"));
+        applicationOutPort.save(Application.create("2", 2L, "10"));
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null, 2L));
+        memberUseCase.leagueId = 2L;
+
+        var result = matchingBatchProcessor.matchWaitingPairs("10");
+
+        assertThat(result.pairsMatched()).isEqualTo(1);
+        assertThatThrownBy(() -> matchingBatchProcessor.matchWaitingPairs("missing"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Game not found");
+    }
+
+    @Test
     @DisplayName("대기 상태가 아닌 신청은 프로필 미리보기를 비워둔다")
     void get_matchedApplication_returnsEmptyPreview() {
         Application mine = Application.create("1", 1L, "10");
@@ -642,6 +677,63 @@ class ApplicationServiceTest {
         var result = applicationService.get(1L, "1");
 
         assertThat(result.waitingPreview()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("상세 조회에서는 허용된 매칭 이유만 기여도 내림차순 상위 3개로 노출한다")
+    void get_matchedApplication_returnsTopThreeExposedMatchReasons() {
+        Application mine = Application.create("1", 1L, "10");
+        mine.assign(2L, 88, List.of(
+                new MatchReason("gender", 15.0),
+                new MatchReason("team", 13.0),
+                new MatchReason("distance", 10.0),
+                new MatchReason("trust", 12.0),
+                new MatchReason("watchStyle", 7.0),
+                new MatchReason("smoking", 8.0)));
+        applicationOutPort.save(mine);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+
+        var result = applicationService.get(1L, "1");
+
+        assertThat(result.matchedProfile().matchReasons()).containsExactly(
+                new MemberProfile.MatchReasonSummary("team", "응원팀이 같아요"),
+                new MemberProfile.MatchReasonSummary("distance", "가까이 살아요"),
+                new MemberProfile.MatchReasonSummary("smoking", "흡연 선호가 맞아요"));
+    }
+
+    @Test
+    @DisplayName("노출 가능한 매칭 이유가 없거나 과거 데이터면 상세 조회에서 빈 배열로 정규화한다")
+    void get_matchedApplication_withoutExposedMatchReasons_returnsEmptyReasons() {
+        Application sensitiveOnly = Application.create("1", 1L, "10");
+        sensitiveOnly.assign(2L, 70, List.of(
+                new MatchReason("gender", 15.0),
+                new MatchReason("trust", 12.0),
+                new MatchReason("age", 5.0)));
+        applicationOutPort.save(sensitiveOnly);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+
+        var result = applicationService.get(1L, "1");
+
+        assertThat(result.matchedProfile().matchReasons()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("목록 조회에서는 매칭 이유를 포함하지 않는다")
+    void applications_matchedApplication_omitsMatchReasons() {
+        Application mine = Application.create("1", 1L, "10");
+        mine.assign(2L, 88, List.of(new MatchReason("team", 13.0)));
+        applicationOutPort.save(mine);
+        gameOutPort.games.put("10", new Game(
+                "10", "LG", "DOOSAN", "잠실", LocalDate.now().plusDays(1),
+                java.time.LocalTime.NOON, LocalDate.now(), null, null, null, null, null, null));
+
+        var result = applicationService.applications(1L, null, null);
+
+        assertThat(result.get(0).matchedProfile().matchReasons()).isNull();
     }
 
     @Test
@@ -707,7 +799,7 @@ class ApplicationServiceTest {
                     application.getStatus(), application.getAppliedAt(), application.getMatchedMemberId(),
                     application.getChatId(), application.getMatchedAt(), application.getExpiresAt(),
                     application.getResponse(), application.getCancelledAt(), application.getMatchScore(),
-                    application.getRejectedMemberIds(), application.getVersion());
+                    application.getMatchReasons(), application.getRejectedMemberIds(), application.getVersion());
             if (failOnSaveMatchedGameIds.contains(toStore.getGameId()) && "matched".equals(toStore.getStatus())) {
                 throw new IllegalStateException("broken match save");
             }
@@ -926,6 +1018,7 @@ class ApplicationServiceTest {
     private static class FakeMemberUseCase implements MemberUseCase {
         private final Map<Long, Integer> trustScores = new LinkedHashMap<>();
         private final Set<Long> missingMemberIds = new java.util.HashSet<>();
+        private Long leagueId = 1L;
 
         @Override
         public MemberProfile get(Long memberId) {
@@ -938,7 +1031,8 @@ class ApplicationServiceTest {
                     trustScores.getOrDefault(memberId, 100),
                     List.of(WatchStyle.CHEER), Personality.TENSION, TalkStyle.TALKATIVE,
                     SmokingStatus.NON_SMOKER, GenderPref.ANY, AgePref.ANY, SmokingPref.ANY, 5, false,
-                    null, null, null, 0, 0, null);
+                    null, null, null, 0, 0, null).withLeagueProfile(new MemberLeagueProfile(
+                            leagueId, null, 1L, null, null, List.of(WatchStyle.CHEER), List.of()));
         }
 
         @Override
@@ -977,6 +1071,7 @@ class ApplicationServiceTest {
 
     private static class FakeMemberOutPort implements MemberOutPort {
         private final Map<Long, Member> members = new LinkedHashMap<>();
+        private final Set<String> missingLeagueProfiles = new java.util.HashSet<>();
 
         @Override public Member save(Member member) {
             members.put(member.getId(), member);
@@ -993,6 +1088,9 @@ class ApplicationServiceTest {
         @Override public void updateExpoPushToken(Long id, String expoPushToken) {}
         @Override public boolean markWelcomeNotified(Long id) { return false; }
         @Override public void withdraw(Long id) {}
+        @Override public boolean existsLeagueProfile(Long memberId, Long leagueId) {
+            return !missingLeagueProfiles.contains(memberId + ":" + leagueId);
+        }
     }
 
     private static Member member(Long id, int trustScore) {

@@ -1,15 +1,25 @@
 package com.sportsmate.server.domain.member.service;
 
 import com.sportsmate.server.common.exception.BusinessException;
+import com.sportsmate.server.common.exception.CommonErrorCode;
 import com.sportsmate.server.common.port.out.location.KakaoLocalApiPort;
 import com.sportsmate.server.common.port.out.location.LocationRegion;
 import com.sportsmate.server.domain.member.Member;
+import com.sportsmate.server.domain.member.MemberLeagueProfile;
 import com.sportsmate.server.domain.member.enums.AgePref;
+import com.sportsmate.server.domain.member.enums.DrinkingPref;
+import com.sportsmate.server.domain.member.enums.DrinkingStatus;
+import com.sportsmate.server.domain.member.enums.FanLevel;
+import com.sportsmate.server.domain.member.enums.FanLevelPref;
 import com.sportsmate.server.domain.member.enums.Gender;
 import com.sportsmate.server.domain.member.enums.GenderPref;
+import com.sportsmate.server.domain.member.enums.MeetPurpose;
 import com.sportsmate.server.domain.member.enums.Personality;
+import com.sportsmate.server.domain.member.enums.SeatZone;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
+import com.sportsmate.server.domain.member.enums.TalkPref;
+import com.sportsmate.server.domain.member.enums.TeamPref;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
 import com.sportsmate.server.domain.member.exception.MemberErrorCode;
@@ -17,10 +27,13 @@ import com.sportsmate.server.domain.member.policy.ProfileOptionPolicy;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.in.MemberUseCase;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
+import com.sportsmate.server.domain.game.port.out.TeamOutPort;
+import com.sportsmate.server.domain.game.Team;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,10 +41,38 @@ public class MemberService implements MemberUseCase {
 
     private final MemberOutPort memberOutPort;
     private final KakaoLocalApiPort kakaoLocalApi;
+    private final TeamOutPort teamOutPort;
 
-    public MemberService(MemberOutPort memberOutPort, KakaoLocalApiPort kakaoLocalApi) {
+    @Autowired
+    public MemberService(MemberOutPort memberOutPort, KakaoLocalApiPort kakaoLocalApi,
+            TeamOutPort teamOutPort) {
         this.memberOutPort = memberOutPort;
         this.kakaoLocalApi = kakaoLocalApi;
+        this.teamOutPort = teamOutPort;
+    }
+
+    public MemberService(MemberOutPort memberOutPort, KakaoLocalApiPort kakaoLocalApi) {
+        this(memberOutPort, kakaoLocalApi, new TeamOutPort() {
+            @Override
+            public List<Team> findAll() {
+                return List.of();
+            }
+
+            @Override
+            public java.util.Optional<Team> findByKboCode(String kboCode) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public java.util.Optional<Team> findByShortName(String shortName) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public boolean existsByIdAndLeagueId(Long teamId, Long leagueId) {
+                return true;
+            }
+        });
     }
 
     @Override
@@ -66,9 +107,45 @@ public class MemberService implements MemberUseCase {
     @Transactional
     public MemberProfile updatePreference(Long memberId, GenderPref genderPref, AgePref agePref,
             SmokingPref smokingPref, Integer distanceKm) {
+        return updatePreference(memberId, genderPref, agePref, smokingPref, null, null, null, distanceKm);
+    }
+
+    @Override
+    @Transactional
+    public MemberProfile updateStyle(Long memberId, Personality personality, TalkStyle talkStyle,
+            SmokingStatus smokingStatus, DrinkingStatus drinkingStatus, MeetPurpose meetPurpose) {
+        ProfileOptionPolicy.validateStyle(personality, talkStyle, smokingStatus, drinkingStatus, meetPurpose);
         Member member = find(memberId);
-        member.updatePreference(genderPref, agePref, smokingPref, distanceKm);
+        member.updateStyle(personality, talkStyle, smokingStatus, drinkingStatus, meetPurpose);
         return MemberProfile.from(memberOutPort.save(member));
+    }
+
+    @Override
+    @Transactional
+    public MemberProfile updatePreference(Long memberId, GenderPref genderPref, AgePref agePref,
+            SmokingPref smokingPref, DrinkingPref drinkingPref, TalkPref talkPref,
+            FanLevelPref fanLevelPref, Integer distanceKm) {
+        Member member = find(memberId);
+        member.updatePreference(genderPref, agePref, smokingPref, drinkingPref, talkPref,
+                fanLevelPref, distanceKm);
+        return MemberProfile.from(memberOutPort.save(member));
+    }
+
+    @Override
+    @Transactional
+    public MemberProfile upsertLeagueProfile(Long memberId, Long leagueId, Long favoriteTeamId,
+            TeamPref teamPref, FanLevel fanLevel, List<WatchStyle> watchStyles,
+            List<SeatZone> seatZones) {
+        if (!teamOutPort.existsByIdAndLeagueId(favoriteTeamId, leagueId)) {
+            throw new BusinessException(CommonErrorCode.INVALID_INPUT);
+        }
+        ProfileOptionPolicy.validateLeagueProfile(watchStyles, fanLevel, seatZones);
+        Member member = find(memberId);
+        MemberLeagueProfile profile = new MemberLeagueProfile(
+                leagueId, null, favoriteTeamId, teamPref, fanLevel, watchStyles, seatZones);
+        member.upsertLeagueProfile(memberOutPort.upsertLeagueProfile(memberId, profile));
+        return MemberProfile.from(memberOutPort.findById(memberId)
+                .orElseThrow(() -> new BusinessException(MemberErrorCode.MEMBER_NOT_FOUND)));
     }
 
     @Override

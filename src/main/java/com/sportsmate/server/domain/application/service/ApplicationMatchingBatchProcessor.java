@@ -7,6 +7,7 @@ import com.sportsmate.server.domain.application.matching.MatchPair;
 import com.sportsmate.server.domain.application.matching.MatchWeights;
 import com.sportsmate.server.domain.application.matching.MatchingEngine;
 import com.sportsmate.server.domain.application.port.out.ApplicationOutPort;
+import com.sportsmate.server.domain.game.port.out.GameOutPort;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.in.MemberUseCase;
 import com.sportsmate.server.domain.notification.port.in.NotificationUseCase;
@@ -26,16 +27,18 @@ public class ApplicationMatchingBatchProcessor {
     private static final Logger log = LoggerFactory.getLogger(ApplicationMatchingBatchProcessor.class);
 
     private final ApplicationOutPort applicationOutPort;
+    private final GameOutPort gameOutPort;
     private final MemberUseCase memberUseCase;
     private final NotificationUseCase notificationUseCase;
     private final MatchingEngine matchingEngine;
     private final MatchCandidateFactory matchCandidateFactory;
     private final MatchWeights matchWeights;
 
-    public ApplicationMatchingBatchProcessor(ApplicationOutPort applicationOutPort, MemberUseCase memberUseCase,
-            NotificationUseCase notificationUseCase, MatchingEngine matchingEngine,
+    public ApplicationMatchingBatchProcessor(ApplicationOutPort applicationOutPort, GameOutPort gameOutPort,
+            MemberUseCase memberUseCase, NotificationUseCase notificationUseCase, MatchingEngine matchingEngine,
             MatchCandidateFactory matchCandidateFactory, MatchWeights matchWeights) {
         this.applicationOutPort = applicationOutPort;
+        this.gameOutPort = gameOutPort;
         this.memberUseCase = memberUseCase;
         this.notificationUseCase = notificationUseCase;
         this.matchingEngine = matchingEngine;
@@ -48,7 +51,10 @@ public class ApplicationMatchingBatchProcessor {
         List<Application> waiting = applicationOutPort.findWaitingByGameId(gameId);
         Map<String, Application> applicationsById = waiting.stream()
                 .collect(Collectors.toMap(Application::getId, Function.identity()));
-        CandidateBatch candidates = candidatesFor(gameId, waiting);
+        Long leagueId = gameOutPort.findById(gameId)
+                .orElseThrow(() -> new IllegalArgumentException("Game not found: " + gameId))
+                .leagueId();
+        CandidateBatch candidates = candidatesFor(gameId, leagueId, waiting);
         if (candidates.size() < 2) {
             return new GameMatchBatchResult(waiting.size(), 0, candidates.personErrors(), waiting.size());
         }
@@ -57,8 +63,8 @@ public class ApplicationMatchingBatchProcessor {
         for (MatchPair pair : pairs) {
             Application first = applicationsById.get(pair.applicationAId());
             Application second = applicationsById.get(pair.applicationBId());
-            first.assign(pair.memberBId(), pair.score());
-            second.assign(pair.memberAId(), pair.score());
+            first.assign(pair.memberBId(), pair.score(), pair.reasons());
+            second.assign(pair.memberAId(), pair.score(), pair.reasons());
             applicationOutPort.save(first);
             applicationOutPort.save(second);
             notificationUseCase.createAndPush(first.getMemberId(), "match", "매칭 후보가 도착했어요!",
@@ -70,13 +76,13 @@ public class ApplicationMatchingBatchProcessor {
         return new GameMatchBatchResult(waiting.size(), pairs.size(), candidates.personErrors(), carryOver);
     }
 
-    private CandidateBatch candidatesFor(String gameId, List<Application> waiting) {
+    private CandidateBatch candidatesFor(String gameId, Long leagueId, List<Application> waiting) {
         List<MatchCandidate> candidates = new ArrayList<>();
         int personErrors = 0;
         for (Application application : waiting) {
             try {
                 MemberProfile profile = memberUseCase.get(application.getMemberId());
-                candidates.add(matchCandidateFactory.from(application, profile));
+                candidates.add(matchCandidateFactory.from(application, profile, leagueId));
             } catch (RuntimeException exception) {
                 personErrors++;
                 // Log only: changing orphan waiting application status belongs to the planning state machine.

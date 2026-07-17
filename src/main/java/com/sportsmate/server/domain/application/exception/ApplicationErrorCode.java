@@ -16,7 +16,8 @@ public enum ApplicationErrorCode implements ErrorCode {
     CANNOT_CANCEL("AP409_3", "Application cannot be cancelled", HttpStatus.CONFLICT),
     MATCH_NOT_READY("AP409_4", "Match result is not ready", HttpStatus.CONFLICT),
     CANNOT_REJECT_AFTER_CHAT_STARTED("AP409_5", "Cannot reject after chat started", HttpStatus.CONFLICT),
-    ALREADY_APPLIED_ON_DATE("AP409_6", "Already applied on this date", HttpStatus.CONFLICT);
+    ALREADY_APPLIED_ON_DATE("AP409_6", "Already applied on this date", HttpStatus.CONFLICT),
+    LEAGUE_PROFILE_REQUIRED("AP409_7", "League profile is required", HttpStatus.CONFLICT);
     private final String code;
     private final String message;
     private final HttpStatus httpStatus;

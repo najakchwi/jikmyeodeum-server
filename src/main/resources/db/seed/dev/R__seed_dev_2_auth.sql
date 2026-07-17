@@ -25,7 +25,22 @@ INSERT INTO auth (id, phone, password, login_type, provider_id, member_id, statu
     (6, NULL, NULL,                                                          'KAKAO',  'kakao-user-1002',  6, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
     (7, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,               7, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
     (8, NULL, NULL,                                                          'GOOGLE', 'google-user-1002', 8, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
-    (9, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,               9, 'ACTIVE', CURRENT_TIMESTAMP, NULL)
+    (9, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,               9, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (10, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              10, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (11, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              11, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (12, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              12, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (13, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              13, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (14, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              14, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (15, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              15, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (16, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              16, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (17, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              17, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (18, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              18, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (19, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              19, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (20, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              20, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (21, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              21, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (22, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              22, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (23, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              23, 'ACTIVE', CURRENT_TIMESTAMP, NULL),
+    (24, NULL, '$2a$10$iGAmXVxfedmbrAhQ7Y6jl.79tEiu/P.HPMV88y21Wih0nuvq/xJZO', 'PHONE',  NULL,              24, 'ACTIVE', CURRENT_TIMESTAMP, NULL)
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -37,7 +52,7 @@ SELECT a.id,
        CURRENT_TIMESTAMP
 FROM auth a
 CROSS JOIN terms t
-WHERE a.id BETWEEN 1 AND 9
+WHERE a.id BETWEEN 1 AND 24
   AND NOT EXISTS (
     SELECT 1
     FROM auth_terms_agreements existing

@@ -1,6 +1,7 @@
 package com.sportsmate.server.domain.member.port.out;
 
 import com.sportsmate.server.domain.member.Member;
+import com.sportsmate.server.domain.member.MemberLeagueProfile;
 import com.sportsmate.server.domain.member.enums.LoginType;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,6 +19,13 @@ public interface MemberOutPort {
     void updateExpoPushToken(Long id, String expoPushToken);
     boolean markWelcomeNotified(Long id);
     void withdraw(Long id);
+    default boolean existsLeagueProfile(Long memberId, Long leagueId) {
+        return false;
+    }
+
+    default MemberLeagueProfile upsertLeagueProfile(Long memberId, MemberLeagueProfile leagueProfile) {
+        throw new UnsupportedOperationException("upsertLeagueProfile is not implemented");
+    }
     default List<LinkedAccount> findLinkedAccounts(Long memberId) {
         throw new UnsupportedOperationException("findLinkedAccounts is not implemented");
     }

@@ -28,6 +28,9 @@ public class TeamEntity extends BaseTimeEntity {
     @Column(name = "sport_id", nullable = false)
     private Long sportId;
 
+    @Column(name = "league_id")
+    private Long leagueId;
+
     @Column(name = "name", length = 100, nullable = false)
     private String name;
 

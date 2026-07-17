@@ -162,7 +162,8 @@ public class GamePersistenceAdapter implements GameOutPort {
                 lookup.teamEmblemUrls().get(entity.getHomeTeamId()),
                 lookup.teamEmblemUrls().get(entity.getAwayTeamId()),
                 entity.getHomeTeamId(),
-                entity.getAwayTeamId());
+                entity.getAwayTeamId(),
+                entity.getLeagueId());
     }
 
     private record NameLookup(

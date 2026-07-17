@@ -1,12 +1,20 @@
 package com.sportsmate.server.infrastructure.adapter.in.web.member;
 
 import com.sportsmate.server.domain.member.enums.AgePref;
+import com.sportsmate.server.domain.member.enums.DrinkingPref;
+import com.sportsmate.server.domain.member.enums.DrinkingStatus;
+import com.sportsmate.server.domain.member.enums.FanLevel;
+import com.sportsmate.server.domain.member.enums.FanLevelPref;
 import com.sportsmate.server.domain.member.enums.Gender;
 import com.sportsmate.server.domain.member.enums.GenderPref;
+import com.sportsmate.server.domain.member.enums.MeetPurpose;
 import com.sportsmate.server.domain.member.enums.Personality;
+import com.sportsmate.server.domain.member.enums.SeatZone;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
+import com.sportsmate.server.domain.member.enums.TalkPref;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
+import com.sportsmate.server.domain.member.enums.TeamPref;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
 import com.sportsmate.server.domain.member.port.in.MemberProfile;
 import com.sportsmate.server.domain.member.port.in.MemberUseCase;
@@ -34,7 +42,9 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -79,8 +89,8 @@ public class MemberController {
             @Parameter(hidden = true) @AuthenticationPrincipal String memberId,
             @Valid @RequestBody UpdateStyleRequest request) {
         return ApiResponse.success(memberUseCase.updateStyle(
-                Long.valueOf(memberId), request.team(), request.watchStyles(),
-                request.personality(), request.talkStyle(), request.smokingStatus()));
+                Long.valueOf(memberId), request.personality(), request.talkStyle(),
+                request.smokingStatus(), request.drinkingStatus(), request.meetPurpose()));
     }
 
     @PatchMapping({"/preference", "/companion-preference"})
@@ -90,7 +100,19 @@ public class MemberController {
             @Valid @RequestBody UpdatePreferenceRequest request) {
         return ApiResponse.success(memberUseCase.updatePreference(
                 Long.valueOf(memberId), request.genderPref(), request.agePref(),
-                request.smokingPref(), request.distanceKm()));
+                request.smokingPref(), request.drinkingPref(), request.talkPref(),
+                request.fanLevelPref(), request.distanceKm()));
+    }
+
+    @PutMapping("/league-profiles/{leagueId}")
+    @Operation(summary = "리그별 프로필 저장", description = "특정 리그의 응원팀, 팀 선호, 직관레벨, 직관스타일, 좌석 선호를 생성 또는 갱신합니다.")
+    public ApiResponse<MemberProfile> upsertLeagueProfile(
+            @Parameter(hidden = true) @AuthenticationPrincipal String memberId,
+            @PathVariable Long leagueId,
+            @Valid @RequestBody UpsertLeagueProfileRequest request) {
+        return ApiResponse.success(memberUseCase.upsertLeagueProfile(
+                Long.valueOf(memberId), leagueId, request.favoriteTeamId(), request.teamPref(),
+                request.fanLevel(), request.watchStyles(), request.seatZones()));
     }
 
     @PostMapping("/location")
@@ -177,7 +199,11 @@ public class MemberController {
             @Schema(description = "대화 스타일", example = "talkative", nullable = true)
             TalkStyle talkStyle,
             @Schema(description = "흡연 여부", example = "non-smoker", nullable = true)
-            SmokingStatus smokingStatus) {}
+            SmokingStatus smokingStatus,
+            @Schema(description = "음주 여부", example = "sometimes", nullable = true)
+            DrinkingStatus drinkingStatus,
+            @Schema(description = "만남 목적", example = "game_only", nullable = true)
+            MeetPurpose meetPurpose) {}
     @Schema(description = "동행 선호 조건 수정 요청")
     public record UpdatePreferenceRequest(
             @Schema(description = "선호 동행 성별", example = "any", nullable = true)
@@ -186,8 +212,26 @@ public class MemberController {
             AgePref agePref,
             @Schema(description = "선호 동행 흡연 여부", example = "non-smoker", nullable = true)
             SmokingPref smokingPref,
+            @Schema(description = "선호 동행 음주 여부", example = "any", nullable = true)
+            DrinkingPref drinkingPref,
+            @Schema(description = "선호 동행 대화 스타일", example = "any", nullable = true)
+            TalkPref talkPref,
+            @Schema(description = "선호 동행 직관 레벨", example = "similar", nullable = true)
+            FanLevelPref fanLevelPref,
             @Schema(description = "매칭 허용 거리(km). 1~100", example = "10", nullable = true)
             @Min(1) @Max(100) Integer distanceKm) {}
+    @Schema(description = "리그별 프로필 upsert 요청")
+    public record UpsertLeagueProfileRequest(
+            @Schema(description = "응원팀 ID", example = "1", nullable = true)
+            Long favoriteTeamId,
+            @Schema(description = "팀 선호", example = "same", nullable = true)
+            TeamPref teamPref,
+            @Schema(description = "직관 레벨", example = "light", nullable = true)
+            FanLevel fanLevel,
+            @Schema(description = "직관 스타일", example = "[\"cheer\", \"food\"]")
+            @Size(max = 10) List<WatchStyle> watchStyles,
+            @Schema(description = "좌석 선호", example = "[\"close\", \"middle\"]")
+            @Size(max = 10) List<SeatZone> seatZones) {}
     @Schema(description = "활동 위치 인증 요청")
     public record LocationRequest(
             @Schema(description = "위도", example = "37.5145")

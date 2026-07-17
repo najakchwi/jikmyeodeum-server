@@ -1,7 +1,11 @@
 package com.sportsmate.server.infrastructure.adapter.out.persistence.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sportsmate.server.common.annotation.PersistenceAdapter;
 import com.sportsmate.server.domain.application.Application;
+import com.sportsmate.server.domain.application.matching.MatchReason;
 import com.sportsmate.server.domain.application.port.out.ApplicationOutPort;
 import com.sportsmate.server.infrastructure.adapter.out.persistence.game.GameJpaRepository;
 import com.sportsmate.server.infrastructure.adapter.out.persistence.match.MatchEntity;
@@ -17,6 +21,9 @@ import java.util.Optional;
 
 @PersistenceAdapter
 public class ApplicationPersistenceAdapter implements ApplicationOutPort {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final TypeReference<List<MatchReason>> MATCH_REASON_LIST_TYPE = new TypeReference<>() {};
+
     private final ApplicationJpaRepository repository;
     private final GameJpaRepository gameRepository;
     private final MatchJpaRepository matchRepository;
@@ -151,6 +158,7 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 .appliedAt(application.getAppliedAt())
                 .cancelledAt(application.getCancelledAt())
                 .matchScore(application.getMatchScore())
+                .matchReasons(writeMatchReasons(application.getMatchReasons()))
                 .version(application.getVersion())
                 .rejectedMemberIds(application.getRejectedMemberIds())
                 .build();
@@ -171,8 +179,31 @@ public class ApplicationPersistenceAdapter implements ApplicationOutPort {
                 entity.getResponse(),
                 entity.getCancelledAt(),
                 entity.getMatchScore(),
+                readMatchReasons(entity.getMatchReasons()),
                 entity.getRejectedMemberIds(),
                 entity.getVersion());
+    }
+
+    private String writeMatchReasons(List<MatchReason> reasons) {
+        if (reasons == null || reasons.isEmpty()) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(reasons);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize application match reasons", exception);
+        }
+    }
+
+    private List<MatchReason> readMatchReasons(String reasonsJson) {
+        if (reasonsJson == null || reasonsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(reasonsJson, MATCH_REASON_LIST_TYPE);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to deserialize application match reasons", exception);
+        }
     }
 
     private LocalDate resolveGameDate(Application application, Long id) {

@@ -112,10 +112,19 @@ management:
         http.server.requests: 0.99
 
 matching:
-  minimum-score: 60
+  # 전면 소프트 매칭 전환에 맞춰 하향. 초기 매칭률을 보며 운영에서 조정한다.
+  minimum-score: 45
   weights:
-    trust: 20
-    team: 40
-    watchStyle: 20
-    personality: 10
+    trust: 12
+    gender: 15
+    team: 13
     distance: 10
+    smoking: 8
+    watchStyle: 7
+    drinking: 6
+    fanLevel: 6
+    personality: 6
+    age: 5
+    seat: 4
+    talk: 4
+    meetPurpose: 4

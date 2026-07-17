@@ -3,10 +3,14 @@ package com.sportsmate.server.infrastructure.adapter.out.persistence.member;
 import com.sportsmate.server.common.annotation.PersistenceAdapter;
 import com.sportsmate.server.common.enums.Role;
 import com.sportsmate.server.domain.member.Member;
+import com.sportsmate.server.domain.member.MemberLeagueProfile;
 import com.sportsmate.server.domain.member.enums.AgePref;
+import com.sportsmate.server.domain.member.enums.DrinkingPref;
+import com.sportsmate.server.domain.member.enums.FanLevelPref;
 import com.sportsmate.server.domain.member.enums.GenderPref;
 import com.sportsmate.server.domain.member.enums.LoginType;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
+import com.sportsmate.server.domain.member.enums.TalkPref;
 import com.sportsmate.server.domain.member.enums.WatchStyle;
 import com.sportsmate.server.domain.member.port.out.MemberOutPort;
 import com.sportsmate.server.infrastructure.adapter.out.persistence.game.TeamEntity;
@@ -16,12 +20,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @PersistenceAdapter
 public class MemberPersistenceAdapter implements MemberOutPort {
     private static final GenderPref DEFAULT_GENDER_PREFERENCE = GenderPref.ANY;
     private static final AgePref DEFAULT_AGE_PREFERENCE = AgePref.ANY;
     private static final SmokingPref DEFAULT_SMOKING_PREFERENCE = SmokingPref.ANY;
+    private static final DrinkingPref DEFAULT_DRINKING_PREFERENCE = DrinkingPref.ANY;
+    private static final TalkPref DEFAULT_TALK_PREFERENCE = TalkPref.ANY;
+    private static final FanLevelPref DEFAULT_FAN_LEVEL_PREFERENCE = FanLevelPref.ANY;
     private static final int DEFAULT_DISTANCE_KM = 5;
     private static final String DEFAULT_AVATAR_COLOR = "#2E7D32";
     private static final String WITHDRAWN_NICKNAME_PREFIX = "DELETED_";
@@ -34,6 +42,9 @@ public class MemberPersistenceAdapter implements MemberOutPort {
     private final MemberWatchStyleJpaRepository watchStyleRepository;
     private final MemberStatsJpaRepository statsRepository;
     private final TeamJpaRepository teamRepository;
+    private final MemberLeagueProfileJpaRepository leagueProfileRepository;
+    private final MemberLeagueWatchStyleJpaRepository leagueWatchStyleRepository;
+    private final MemberLeagueSeatZoneJpaRepository leagueSeatZoneRepository;
 
     public MemberPersistenceAdapter(
             MemberJpaRepository memberRepository,
@@ -43,7 +54,10 @@ public class MemberPersistenceAdapter implements MemberOutPort {
             MemberStyleJpaRepository styleRepository,
             MemberWatchStyleJpaRepository watchStyleRepository,
             MemberStatsJpaRepository statsRepository,
-            TeamJpaRepository teamRepository
+            TeamJpaRepository teamRepository,
+            MemberLeagueProfileJpaRepository leagueProfileRepository,
+            MemberLeagueWatchStyleJpaRepository leagueWatchStyleRepository,
+            MemberLeagueSeatZoneJpaRepository leagueSeatZoneRepository
     ) {
         this.memberRepository = memberRepository;
         this.authRepository = authRepository;
@@ -53,6 +67,9 @@ public class MemberPersistenceAdapter implements MemberOutPort {
         this.watchStyleRepository = watchStyleRepository;
         this.statsRepository = statsRepository;
         this.teamRepository = teamRepository;
+        this.leagueProfileRepository = leagueProfileRepository;
+        this.leagueWatchStyleRepository = leagueWatchStyleRepository;
+        this.leagueSeatZoneRepository = leagueSeatZoneRepository;
     }
 
     @Override
@@ -106,6 +123,9 @@ public class MemberPersistenceAdapter implements MemberOutPort {
                 .genderPref(genderPreferenceOrDefault(member.getGenderPref()))
                 .agePref(agePreferenceOrDefault(member.getAgePref()))
                 .smokingPref(smokingPreferenceOrDefault(member.getSmokingPref()))
+                .drinkingPref(drinkingPreferenceOrDefault(member.getDrinkingPref()))
+                .talkPref(talkPreferenceOrDefault(member.getTalkPref()))
+                .fanLevelPref(fanLevelPreferenceOrDefault(member.getFanLevelPref()))
                 .distanceKm(distanceOrDefault(member.getDistanceKm()))
                 .build());
 
@@ -116,6 +136,8 @@ public class MemberPersistenceAdapter implements MemberOutPort {
                 .personality(member.getPersonality())
                 .talkStyle(member.getTalkStyle())
                 .smokingStatus(member.getSmokingStatus())
+                .drinkingStatus(member.getDrinkingStatus())
+                .meetPurpose(member.getMeetPurpose())
                 .build());
 
         watchStyleRepository.deleteAllByMemberId(saved.getId());
@@ -147,6 +169,7 @@ public class MemberPersistenceAdapter implements MemberOutPort {
                     .verifiedAt(now)
                     .build());
         }
+        saveLeagueProfiles(saved.getId(), member.getLeagueProfiles());
         return toDomain(saved, savedAuth);
     }
 
@@ -182,6 +205,9 @@ public class MemberPersistenceAdapter implements MemberOutPort {
         preferenceRepository.deleteByMemberId(id);
         locationRepository.deleteByMemberId(id);
         watchStyleRepository.deleteAllByMemberId(id);
+        leagueProfileRepository.deleteAllByIdMemberId(id);
+        leagueWatchStyleRepository.deleteAllByIdMemberId(id);
+        leagueSeatZoneRepository.deleteAllByIdMemberId(id);
     }
 
     private String withdrawnNickname() {
@@ -257,6 +283,20 @@ public class MemberPersistenceAdapter implements MemberOutPort {
         memberRepository.updatePhone(memberId, phone);
     }
 
+    @Override
+    public boolean existsLeagueProfile(Long memberId, Long leagueId) {
+        return leagueProfileRepository.existsById(MemberLeagueProfileId.of(memberId, leagueId));
+    }
+
+    @Override
+    public MemberLeagueProfile upsertLeagueProfile(Long memberId, MemberLeagueProfile leagueProfile) {
+        saveLeagueProfile(memberId, leagueProfile);
+        return findLeagueProfiles(memberId).stream()
+                .filter(profile -> profile.leagueId().equals(leagueProfile.leagueId()))
+                .findFirst()
+                .orElse(leagueProfile);
+    }
+
     private Member toDomain(MemberEntity entity) {
         AuthEntity auth = primaryAuth(entity)
                 .orElseThrow(() -> new IllegalStateException("Auth not found for member: " + entity.getId()));
@@ -280,6 +320,7 @@ public class MemberPersistenceAdapter implements MemberOutPort {
         List<WatchStyle> watchStyles = watchStyleRepository.findAllByMemberId(entity.getId())
                 .stream().map(w -> w.getId().getWatchStyle()).toList();
         MemberStatsEntity stats = statsRepository.findById(entity.getId()).orElse(null);
+        List<MemberLeagueProfile> leagueProfiles = findLeagueProfiles(entity.getId());
 
         boolean locationVerified = location != null && Boolean.TRUE.equals(location.getVerified());
 
@@ -307,9 +348,14 @@ public class MemberPersistenceAdapter implements MemberOutPort {
                 style == null ? null : style.getPersonality(),
                 style == null ? null : style.getTalkStyle(),
                 style == null ? null : style.getSmokingStatus(),
+                style == null ? null : style.getDrinkingStatus(),
+                style == null ? null : style.getMeetPurpose(),
                 preference == null ? DEFAULT_GENDER_PREFERENCE : genderPreferenceOrDefault(preference.getGenderPref()),
                 preference == null ? DEFAULT_AGE_PREFERENCE : agePreferenceOrDefault(preference.getAgePref()),
                 preference == null ? DEFAULT_SMOKING_PREFERENCE : smokingPreferenceOrDefault(preference.getSmokingPref()),
+                preference == null ? DEFAULT_DRINKING_PREFERENCE : drinkingPreferenceOrDefault(preference.getDrinkingPref()),
+                preference == null ? DEFAULT_TALK_PREFERENCE : talkPreferenceOrDefault(preference.getTalkPref()),
+                preference == null ? DEFAULT_FAN_LEVEL_PREFERENCE : fanLevelPreferenceOrDefault(preference.getFanLevelPref()),
                 preference == null ? DEFAULT_DISTANCE_KM : distanceOrDefault(preference.getDistanceKm()),
                 locationVerified,
                 location != null ? location.getAddress() : null,
@@ -321,7 +367,61 @@ public class MemberPersistenceAdapter implements MemberOutPort {
                 stats == null ? 0 : stats.getCouponCount(),
                 stats == null ? 0 : stats.getPriorityPassCount(),
                 false,
-                roleOrDefault(entity.getRole()));
+                roleOrDefault(entity.getRole()),
+                leagueProfiles);
+    }
+
+    private void saveLeagueProfiles(Long memberId, List<MemberLeagueProfile> leagueProfiles) {
+        if (leagueProfiles == null) {
+            return;
+        }
+        for (MemberLeagueProfile profile : leagueProfiles) {
+            saveLeagueProfile(memberId, profile);
+        }
+    }
+
+    private void saveLeagueProfile(Long memberId, MemberLeagueProfile profile) {
+        leagueProfileRepository.save(MemberLeagueProfileEntity.builder()
+                .id(MemberLeagueProfileId.of(memberId, profile.leagueId()))
+                .favoriteTeamId(profile.favoriteTeamId())
+                .teamPref(profile.teamPref())
+                .fanLevel(profile.fanLevel())
+                .build());
+        leagueWatchStyleRepository.deleteAllByIdMemberIdAndIdLeagueId(memberId, profile.leagueId());
+        profile.watchStyles().forEach(style -> leagueWatchStyleRepository.save(
+                MemberLeagueWatchStyleEntity.builder()
+                        .id(MemberLeagueWatchStyleId.of(memberId, profile.leagueId(), style))
+                        .build()));
+        leagueSeatZoneRepository.deleteAllByIdMemberIdAndIdLeagueId(memberId, profile.leagueId());
+        profile.seatZones().forEach(zone -> leagueSeatZoneRepository.save(
+                MemberLeagueSeatZoneEntity.builder()
+                        .id(MemberLeagueSeatZoneId.of(memberId, profile.leagueId(), zone))
+                        .build()));
+    }
+
+    private List<MemberLeagueProfile> findLeagueProfiles(Long memberId) {
+        var watchStylesByLeague = leagueWatchStyleRepository.findAllByIdMemberId(memberId).stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getId().getLeagueId(),
+                        Collectors.mapping(
+                                item -> item.getId().getWatchStyle(),
+                                Collectors.toList())));
+        var seatZonesByLeague = leagueSeatZoneRepository.findAllByIdMemberId(memberId).stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getId().getLeagueId(),
+                        Collectors.mapping(
+                                item -> item.getId().getSeatZone(),
+                                Collectors.toList())));
+        return leagueProfileRepository.findAllByIdMemberId(memberId).stream()
+                .map(entity -> new MemberLeagueProfile(
+                        entity.getId().getLeagueId(),
+                        null,
+                        entity.getFavoriteTeamId(),
+                        entity.getTeamPref(),
+                        entity.getFanLevel(),
+                        watchStylesByLeague.getOrDefault(entity.getId().getLeagueId(), List.of()),
+                        seatZonesByLeague.getOrDefault(entity.getId().getLeagueId(), List.of())))
+                .toList();
     }
 
     private Role roleOrDefault(String role) {
@@ -348,6 +448,18 @@ public class MemberPersistenceAdapter implements MemberOutPort {
 
     private SmokingPref smokingPreferenceOrDefault(SmokingPref preference) {
         return preference == null ? DEFAULT_SMOKING_PREFERENCE : preference;
+    }
+
+    private DrinkingPref drinkingPreferenceOrDefault(DrinkingPref preference) {
+        return preference == null ? DEFAULT_DRINKING_PREFERENCE : preference;
+    }
+
+    private TalkPref talkPreferenceOrDefault(TalkPref preference) {
+        return preference == null ? DEFAULT_TALK_PREFERENCE : preference;
+    }
+
+    private FanLevelPref fanLevelPreferenceOrDefault(FanLevelPref preference) {
+        return preference == null ? DEFAULT_FAN_LEVEL_PREFERENCE : preference;
     }
 
     private int distanceOrDefault(Integer distanceKm) {

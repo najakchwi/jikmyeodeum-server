@@ -3,8 +3,11 @@ package com.sportsmate.server.infrastructure.adapter.out.persistence.member;
 import com.sportsmate.server.common.persistence.BaseTimeEntity;
 
 import com.sportsmate.server.domain.member.enums.AgePref;
+import com.sportsmate.server.domain.member.enums.DrinkingPref;
+import com.sportsmate.server.domain.member.enums.FanLevelPref;
 import com.sportsmate.server.domain.member.enums.GenderPref;
 import com.sportsmate.server.domain.member.enums.SmokingPref;
+import com.sportsmate.server.domain.member.enums.TalkPref;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,6 +41,18 @@ public class MemberPreferenceEntity extends BaseTimeEntity {
     @Column(name = "smoking_pref", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ANY'")
     @Enumerated(EnumType.STRING)
     private SmokingPref smokingPref;
+
+    @Column(name = "drinking_pref", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ANY'")
+    @Enumerated(EnumType.STRING)
+    private DrinkingPref drinkingPref;
+
+    @Column(name = "talk_pref", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ANY'")
+    @Enumerated(EnumType.STRING)
+    private TalkPref talkPref;
+
+    @Column(name = "fan_level_pref", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'ANY'")
+    @Enumerated(EnumType.STRING)
+    private FanLevelPref fanLevelPref;
 
     @Column(name = "distance_km", nullable = false, columnDefinition = "INTEGER DEFAULT 5")
     private Integer distanceKm;

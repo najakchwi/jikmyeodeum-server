@@ -22,10 +22,19 @@ public class TeamPersistenceAdapter implements TeamOutPort {
                 .sorted(Comparator.comparing(TeamEntity::getId))
                 .map(entity -> new Team(
                         entity.getId(),
+                        entity.getLeagueId(),
                         entity.getName(),
                         entity.getShortName(),
                         entity.getEmblemImageKey(),
                         entity.getPrimaryColorHex()))
+                .toList();
+    }
+
+    @Override
+    public List<Team> findByLeagueId(Long leagueId) {
+        return repository.findByLeagueId(leagueId).stream()
+                .sorted(Comparator.comparing(TeamEntity::getId))
+                .map(this::toDomain)
                 .toList();
     }
 
@@ -41,9 +50,15 @@ public class TeamPersistenceAdapter implements TeamOutPort {
         return repository.findByShortName(shortName).map(this::toDomain);
     }
 
+    @Override
+    public boolean existsByIdAndLeagueId(Long teamId, Long leagueId) {
+        return teamId == null || repository.existsByIdAndLeagueId(teamId, leagueId);
+    }
+
     private Team toDomain(TeamEntity entity) {
         return new Team(
                 entity.getId(),
+                entity.getLeagueId(),
                 entity.getName(),
                 entity.getShortName(),
                 entity.getEmblemImageKey(),

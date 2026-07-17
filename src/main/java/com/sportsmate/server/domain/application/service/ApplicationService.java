@@ -3,6 +3,7 @@ package com.sportsmate.server.domain.application.service;
 import com.sportsmate.server.common.exception.BusinessException;
 import com.sportsmate.server.domain.application.Application;
 import com.sportsmate.server.domain.application.exception.ApplicationErrorCode;
+import com.sportsmate.server.domain.application.matching.MatchReason;
 import com.sportsmate.server.domain.application.policy.CancellationPenaltyPolicy;
 import com.sportsmate.server.domain.application.port.in.ApplicationUseCase;
 import com.sportsmate.server.domain.application.port.out.ApplicationOutPort;
@@ -20,6 +21,7 @@ import com.sportsmate.server.domain.review.port.out.ReviewOutPort;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,17 @@ public class ApplicationService implements ApplicationUseCase {
     private static final Logger log = LoggerFactory.getLogger(ApplicationService.class);
     private static final Set<String> ACTIVE_STATUSES = Set.of("waiting", "matched", "chatting");
     private static final int MIN_TRUST_SCORE_TO_APPLY = 50;
+    private static final Map<String, String> EXPOSED_MATCH_REASON_LABELS = Map.ofEntries(
+            Map.entry("team", "응원팀이 같아요"),
+            Map.entry("watchStyle", "직관 스타일이 비슷해요"),
+            Map.entry("distance", "가까이 살아요"),
+            Map.entry("fanLevel", "직관 레벨이 잘 맞아요"),
+            Map.entry("personality", "성향이 잘 맞아요"),
+            Map.entry("seat", "선호 좌석이 비슷해요"),
+            Map.entry("talk", "대화 스타일이 잘 맞아요"),
+            Map.entry("meetPurpose", "만남 목적이 같아요"),
+            Map.entry("smoking", "흡연 선호가 맞아요"),
+            Map.entry("drinking", "음주 선호가 맞아요"));
 
     private final ApplicationOutPort applicationOutPort;
     private final GameOutPort gameOutPort;
@@ -71,6 +84,9 @@ public class ApplicationService implements ApplicationUseCase {
         }
         if (memberUseCase.get(memberId).trustScore() < MIN_TRUST_SCORE_TO_APPLY) {
             throw new BusinessException(ApplicationErrorCode.TRUST_SCORE_TOO_LOW);
+        }
+        if (game.leagueId() != null && !memberOutPort.existsLeagueProfile(memberId, game.leagueId())) {
+            throw new BusinessException(ApplicationErrorCode.LEAGUE_PROFILE_REQUIRED);
         }
         if (applicationOutPort.existsActiveByMemberIdAndGameId(memberId, gameId)) {
             throw new BusinessException(ApplicationErrorCode.ALREADY_APPLIED);
@@ -146,7 +162,7 @@ public class ApplicationService implements ApplicationUseCase {
         Application application = find(memberId, applicationId);
         return new MatchStatusResult(
                 application.getStatus(),
-                matchedProfile(application),
+                matchedProfile(application, false),
                 application.getChatId(),
                 application.getMatchedAt(),
                 application.getExpiresAt());
@@ -242,6 +258,7 @@ public class ApplicationService implements ApplicationUseCase {
     }
 
     @Override
+    @Transactional
     public MatchBatchResult matchWaitingApplications() {
         long startedAt = System.nanoTime();
         List<String> gameIds = applicationOutPort.findGameIdsWithWaitingApplications();
@@ -338,7 +355,7 @@ public class ApplicationService implements ApplicationUseCase {
         return new ApplicationResult(
                 application.getId(), gameService.toResult(memberId, game),
                 application.getAppliedAt(), application.getStatus(),
-                matchedProfile(application), application.getChatId(),
+                matchedProfile(application, includeMyReview), application.getChatId(),
                 application.getMatchedAt(), application.getExpiresAt(),
                 waitingPreview(application),
                 myReview(memberId, application, includeMyReview));
@@ -356,9 +373,28 @@ public class ApplicationService implements ApplicationUseCase {
         return memberId == null ? null : memberUseCase.get(memberId);
     }
 
-    private MemberProfile matchedProfile(Application application) {
+    private MemberProfile matchedProfile(Application application, boolean includeMatchReasons) {
         MemberProfile profile = profile(application.getMatchedMemberId());
-        return profile == null ? null : profile.withMatchScore(application.getMatchScore());
+        if (profile == null) {
+            return null;
+        }
+        MemberProfile matchedProfile = profile.withMatchScore(application.getMatchScore());
+        return includeMatchReasons
+                ? matchedProfile.withMatchReasons(exposedMatchReasons(application.getMatchReasons()))
+                : matchedProfile;
+    }
+
+    private List<MemberProfile.MatchReasonSummary> exposedMatchReasons(List<MatchReason> reasons) {
+        if (reasons == null || reasons.isEmpty()) {
+            return List.of();
+        }
+        return reasons.stream()
+                .filter(reason -> EXPOSED_MATCH_REASON_LABELS.containsKey(reason.key()))
+                .sorted(java.util.Comparator.comparingDouble(MatchReason::contribution).reversed())
+                .limit(3)
+                .map(reason -> new MemberProfile.MatchReasonSummary(
+                        reason.key(), EXPOSED_MATCH_REASON_LABELS.get(reason.key())))
+                .toList();
     }
 
     private List<WaitingParticipantPreview> waitingPreview(Application application) {

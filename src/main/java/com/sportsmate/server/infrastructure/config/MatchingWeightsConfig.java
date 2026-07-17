@@ -22,7 +22,8 @@ public class MatchingWeightsConfig {
 
     public static class MatchingProperties {
         private Map<String, Double> weights = Map.of();
-        private int minimumScore = 60;
+        // 전면 소프트 매칭 전환에 맞춰 하향. 초기 매칭률을 보며 운영에서 조정한다.
+        private int minimumScore = 45;
 
         public Map<String, Double> getWeights() {
             return weights;

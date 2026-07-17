@@ -2,6 +2,8 @@ package com.sportsmate.server.infrastructure.adapter.out.persistence.member;
 
 import com.sportsmate.server.common.persistence.BaseTimeEntity;
 
+import com.sportsmate.server.domain.member.enums.DrinkingStatus;
+import com.sportsmate.server.domain.member.enums.MeetPurpose;
 import com.sportsmate.server.domain.member.enums.Personality;
 import com.sportsmate.server.domain.member.enums.SmokingStatus;
 import com.sportsmate.server.domain.member.enums.TalkStyle;
@@ -41,4 +43,12 @@ public class MemberStyleEntity extends BaseTimeEntity {
     @Column(name = "smoking_status", length = 50)
     @Enumerated(EnumType.STRING)
     private SmokingStatus smokingStatus;
+
+    @Column(name = "drinking_status", length = 50)
+    @Enumerated(EnumType.STRING)
+    private DrinkingStatus drinkingStatus;
+
+    @Column(name = "meet_purpose", length = 50)
+    @Enumerated(EnumType.STRING)
+    private MeetPurpose meetPurpose;
 }

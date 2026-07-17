@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Server — AI 작업 지침 (Claude·Codex 공통)
 
 This repository uses shared AI instructions instead of duplicating rules per tool.
+(`AGENTS.md` is a symlink to this file.)
 
 Before doing any work in this project:
 
