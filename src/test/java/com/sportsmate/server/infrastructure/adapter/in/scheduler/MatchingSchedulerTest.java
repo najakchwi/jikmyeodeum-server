@@ -6,6 +6,8 @@ import com.sportsmate.server.common.port.out.alert.AlertMessage;
 import com.sportsmate.server.common.port.out.alert.AlertSeverity;
 import com.sportsmate.server.common.port.out.alert.OpsAlertPort;
 import com.sportsmate.server.domain.application.port.in.ApplicationUseCase;
+import com.sportsmate.server.infrastructure.monitoring.MatchingBatchMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,7 @@ class MatchingSchedulerTest {
                 new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(1, 0, 0, 1, 2, 0, 0, 0, 10)),
                 alerts,
                 heartbeat,
+                metrics(),
                 0.4);
 
         scheduler.matchWaitingApplications();
@@ -41,6 +44,7 @@ class MatchingSchedulerTest {
                 new StubApplicationUseCase(new ApplicationUseCase.MatchBatchResult(2, 1, 0, 1, 4, 2, 0, 2, 10)),
                 alerts,
                 new JobHeartbeat(),
+                metrics(),
                 0.4);
 
         scheduler.matchWaitingApplications();
@@ -56,6 +60,7 @@ class MatchingSchedulerTest {
                 new ThrowingApplicationUseCase(),
                 alerts,
                 new JobHeartbeat(),
+                metrics(),
                 0.4);
 
         scheduler.matchWaitingApplications();
@@ -118,5 +123,9 @@ class MatchingSchedulerTest {
     }
 
     private record SentAlert(AlertSeverity severity, AlertMessage message) {
+    }
+
+    private MatchingBatchMetrics metrics() {
+        return new MatchingBatchMetrics(new SimpleMeterRegistry());
     }
 }
