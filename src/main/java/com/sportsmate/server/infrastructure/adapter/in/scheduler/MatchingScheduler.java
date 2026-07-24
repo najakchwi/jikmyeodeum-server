@@ -4,6 +4,7 @@ import com.sportsmate.server.common.port.out.alert.AlertMessage;
 import com.sportsmate.server.common.port.out.alert.AlertSeverity;
 import com.sportsmate.server.common.port.out.alert.OpsAlertPort;
 import com.sportsmate.server.domain.application.port.in.ApplicationUseCase;
+import com.sportsmate.server.infrastructure.monitoring.MatchingBatchMetrics;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,16 +22,19 @@ public class MatchingScheduler {
     private final ApplicationUseCase applicationUseCase;
     private final OpsAlertPort opsAlertPort;
     private final JobHeartbeat jobHeartbeat;
+    private final MatchingBatchMetrics matchingBatchMetrics;
     private final double matchRateWarningThreshold;
 
     public MatchingScheduler(
             ApplicationUseCase applicationUseCase,
             OpsAlertPort opsAlertPort,
             JobHeartbeat jobHeartbeat,
+            MatchingBatchMetrics matchingBatchMetrics,
             @Value("${app.alert.matching.match-rate-warning-threshold:0.4}") double matchRateWarningThreshold) {
         this.applicationUseCase = applicationUseCase;
         this.opsAlertPort = opsAlertPort;
         this.jobHeartbeat = jobHeartbeat;
+        this.matchingBatchMetrics = matchingBatchMetrics;
         this.matchRateWarningThreshold = matchRateWarningThreshold;
     }
 
@@ -42,6 +46,7 @@ public class MatchingScheduler {
                 "job:matching:start:" + LocalDateTime.now().toLocalDate()));
         try {
             var result = applicationUseCase.matchWaitingApplications();
+            matchingBatchMetrics.recordSuccess(result);
             log.info(
                     "Waiting applications matched. gamesProcessed={}, gamesFailed={}, gamesSkipped={}, pairsMatched={}, totalApplicants={}, unmatchedPeople={}, personErrors={}, carryOver={}, durationMs={}",
                     result.gamesProcessed(),
@@ -62,6 +67,7 @@ public class MatchingScheduler {
                 opsAlertPort.notify(AlertSeverity.WARNING, matchingWarning(result));
             }
         } catch (RuntimeException exception) {
+            matchingBatchMetrics.recordFailure();
             log.error("Waiting applications matching failed fatally.", exception);
             jobHeartbeat.markFailure(HealthAlertScheduler.MATCHING_JOB);
             opsAlertPort.notify(AlertSeverity.CRITICAL, new AlertMessage(
