@@ -94,11 +94,13 @@ jobs:
           username: ${{ secrets.LIGHTSAIL_USER }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            for i in $(seq 1 10); do
+            for i in $(seq 1 30); do
               if curl -sf http://localhost:8080/actuator/health; then
                 exit 0
               fi
-              sleep 3
+              echo "Waiting for health check (${i}/30)"
+              sleep 5
             done
+            docker compose logs --tail 100 server || true
             echo "Health check failed"
             exit 1

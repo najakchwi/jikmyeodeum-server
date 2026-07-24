@@ -1,0 +1,32 @@
+spring:
+  config:
+    activate:
+      on-profile: experiment
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed/common
+    clean-disabled: false
+
+  task:
+    scheduling:
+      enabled: false
+
+logging:
+  level:
+    com.sportsmate.server: info
+    org.hibernate.SQL: warn
+    org.hibernate.orm.jdbc.bind: warn
