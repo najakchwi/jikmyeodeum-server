@@ -1,0 +1,15 @@
+services:
+  server-experiment:
+    image: najakchui/jikmyeodeum-server:latest
+    container_name: jikmyeodeum-server-experiment
+    restart: "no"
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.experiment
+    environment:
+      SPRING_PROFILES_ACTIVE: experiment
+      SPRING_CONFIG_ADDITIONAL_LOCATION: optional:file:/app/experiment-config/
+    volumes:
+      - ./experiment-logs:/app/logs
+      - ./experiment-config:/app/experiment-config:ro
